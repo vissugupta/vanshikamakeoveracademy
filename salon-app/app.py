@@ -504,6 +504,12 @@ def init_db():
             last_login    TEXT
         )''')
 
+        # Tracks one-time installation migrations that must not be repeated.
+        db.execute('''CREATE TABLE IF NOT EXISTS app_metadata (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )''')
+
         # ── Per-tenant messaging credentials (encrypted at rest) ─────────────
         db.execute('''CREATE TABLE IF NOT EXISTS messaging_credentials (
             id                    INTEGER PRIMARY KEY DEFAULT 1,
@@ -526,6 +532,7 @@ def init_db():
         _seed_services(db)
         _backfill_customers(db)
         _seed_admin_users(db)
+        _apply_configured_bootstrap_password(db)
 
 
 def _migrate_db(db):
@@ -679,6 +686,43 @@ def _seed_admin_users(db):
                     'Vanshika (Owner)',
                     'owner'))
         db.commit()
+
+
+def _apply_configured_bootstrap_password(db):
+    """Apply a configured bootstrap password once to the existing owner.
+
+    Fresh databases already use ADMIN_BOOTSTRAP_PASSWORD in
+    ``_seed_admin_users``. This second step supports an installation that was
+    created before the secret was configured, without resetting the owner
+    password on every subsequent restart.
+    """
+    bootstrap_pwd = os.environ.get('ADMIN_BOOTSTRAP_PASSWORD', '').strip()
+    if not bootstrap_pwd:
+        return
+
+    applied = db.execute(
+        "SELECT value FROM app_metadata WHERE key=?",
+        ('bootstrap_password_applied',),
+    ).fetchone()
+    if applied:
+        return
+
+    owner = db.execute(
+        "SELECT id FROM admin_users WHERE role='owner' ORDER BY id LIMIT 1"
+    ).fetchone()
+    if not owner:
+        return
+
+    db.execute(
+        "UPDATE admin_users SET password_hash=? WHERE id=?",
+        (generate_password_hash(bootstrap_pwd), owner['id']),
+    )
+    db.execute(
+        "INSERT INTO app_metadata (key, value) VALUES (?, ?)",
+        ('bootstrap_password_applied', '1'),
+    )
+    db.commit()
+    app.logger.info('Configured bootstrap password applied to the local owner account.')
 
 
 def _backfill_customers(db):
