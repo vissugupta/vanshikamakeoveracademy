@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+{% block title %}Book Appointment — Vanshika Makeover Academy{% endblock %}
+
+{% block head %}
+<script>
+  const SERVICES = {{ services | tojson }};
+  function updateServices() {
+    const cat = document.getElementById('category').value;
+    const sel = document.getElementById('service');
+    sel.innerHTML = '<option value="">— Select a Service —</option>';
+    if (cat && SERVICES[cat]) {
+      SERVICES[cat].forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s; opt.textContent = s;
+        sel.appendChild(opt);
+      });
+    }
+  }
+</script>
+<style>
+  /* Booking controls intentionally use a light application-form surface.
+     The global luxury theme targets every input with !important, so keep
+     this scope explicit rather than changing admin and staff forms. */
+  .booking-page .booking-card {
+    background: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06) !important;
+  }
+  .booking-page .booking-label {
+    color: #475569 !important;
+  }
+  .booking-page .booking-label i {
+    color: #b78a3c !important;
+  }
+  .booking-page .booking-field {
+    appearance: none;
+    background: #f8fafc !important;
+    border: 1px solid #dbe3ec !important;
+    border-radius: 12px;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03);
+    color: #1f2937 !important;
+    min-height: 50px;
+    outline: none;
+    transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  }
+  .booking-page .booking-field::placeholder {
+    color: #94a3b8 !important;
+    opacity: 1;
+  }
+  .booking-page .booking-field:focus {
+    background: #ffffff !important;
+    border-color: #c9a96e !important;
+    box-shadow: 0 0 0 4px rgba(201, 169, 110, 0.16), inset 0 1px 2px rgba(15, 23, 42, 0.03) !important;
+  }
+  .booking-page select.booking-field option {
+    background: #ffffff !important;
+    color: #1f2937 !important;
+  }
+  .booking-page input[type="date"].booking-field {
+    color-scheme: light;
+  }
+  .booking-page .booking-helper {
+    color: #64748b !important;
+  }
+  .booking-page .booking-helper i {
+    color: #b78a3c !important;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="booking-page pt-5 pb-4">
+
+  <!-- Header with image banner -->
+  <div class="relative rounded-2xl overflow-hidden mb-6" style="height:140px;">
+    <img
+      src="https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800&q=80&fit=crop"
+      alt="Book Appointment"
+      class="w-full h-full object-cover"
+      onerror="this.parentElement.style.background='linear-gradient(135deg,#9d174d,#be185d)'"
+    />
+    <div class="absolute inset-0" style="background:linear-gradient(135deg,rgba(157,23,77,0.75) 0%,rgba(180,83,9,0.5) 100%);"></div>
+    <!-- Gold top line -->
+    <div class="absolute top-0 left-0 right-0" style="height:3px; background:linear-gradient(90deg,#92400e,#fbbf24,#d97706,#fbbf24,#92400e);"></div>
+    <div class="absolute inset-0 flex flex-col items-center justify-center">
+      <div class="w-12 h-12 rounded-full flex items-center justify-center mb-2"
+           style="background:linear-gradient(135deg,#d97706,#fbbf24); box-shadow:0 4px 16px rgba(180,83,9,0.4);">
+        <i class="fa-solid fa-calendar-check text-white text-lg"></i>
+      </div>
+      <h1 class="font-display text-2xl font-bold text-white drop-shadow-sm">Book Appointment</h1>
+      <p class="text-yellow-200 text-xs mt-1 tracking-wide">Reserve your beauty session</p>
+    </div>
+  </div>
+
+  <!-- Error messages -->
+  {% if errors %}
+  <div class="rounded-2xl p-4 mb-5 flex gap-3" style="background:#fef2f2; border:1px solid #fecaca;">
+    <i class="fa-solid fa-circle-exclamation text-red-400 mt-0.5 flex-shrink-0"></i>
+    <div class="space-y-1">
+      {% for e in errors %}
+      <div class="text-red-700 text-sm">{{ e }}</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Booking Form -->
+  <form method="POST" action="/book" id="bookingForm" class="space-y-3">
+
+    <!-- Name -->
+    <div class="booking-card rounded-2xl p-4 card-shadow">
+      <label class="booking-label flex items-center gap-2 text-xs font-semibold uppercase tracking-wider mb-2" style="color:#b45309;">
+        <i class="fa-solid fa-user w-4 text-center" style="color:#d97706;"></i>
+        Full Name <span class="text-red-400">*</span>
+      </label>
+      <input
+        type="text" name="name"
+        value="{{ form.get('name', '') }}"
+        placeholder="Your full name"
+        required
+        class="booking-field w-full rounded-xl px-4 py-3 text-gray-700 transition focus:outline-none"
+        style="border:1.5px solid #fde68a; background:#fffbf0; font-size:16px;"
+        onfocus="this.style.borderColor='#d97706'; this.style.background='#fff';"
+        onblur="this.style.borderColor='#fde68a'; this.style.background='#fffbf0';"
+      />
+    </div>
+
+    <!-- Phone -->
+    <div class="booking-card rounded-2xl p-4 card-shadow">
+      <label class="booking-label flex items-center gap-2 text-xs font-semibold uppercase tracking-wider mb-2" style="color:#b45309;">
+        <i class="fa-solid fa-phone w-4 text-center" style="color:#d97706;"></i>
+        Phone Number <span class="text-red-400">*</span>
+      </label>
+      <input
+        type="tel" name="phone"
+        value="{{ form.get('phone', '') }}"
+        placeholder="10-digit mobile number"
+        pattern="[0-9]{10}"
+        required
+        class="booking-field w-full rounded-xl px-4 py-3 text-gray-700 transition focus:outline-none"
+        style="border:1.5px solid #fde68a; background:#fffbf0; font-size:16px;"
+        onfocus="this.style.borderColor='#d97706'; this.style.background='#fff';"
+        onblur="this.style.borderColor='#fde68a'; this.style.background='#fffbf0';"
+      />
+    </div>
+
+    <!-- Email -->
+    <div class="booking-card rounded-2xl p-4 card-shadow">
+      <label class="booking-label flex items-center gap-2 text-xs font-semibold uppercase tracking-wider mb-2" style="color:#b45309;">
+        <i class="fa-solid fa-envelope w-4 text-center" style="color:#d97706;"></i>
+         Email Address <span class="text-red-400">*</span>
+      </label>
+      <input
+        type="email" name="email"
+        value="{{ form.get('email', '') }}"
+        placeholder="your@email.com"
+         required
+        class="booking-field w-full rounded-xl px-4 py-3 text-gray-700 transition focus:outline-none"
+        style="border:1.5px solid #fde68a; background:#fffbf0; font-size:16px;"
+        onfocus="this.style.borderColor='#d97706'; this.style.background='#fff';"
+        onblur="this.style.borderColor='#fde68a'; this.style.background='#fffbf0';"
+      />
+       <p class="booking-helper text-xs mt-1.5" style="color:#b45309;">
+         <i class="fa-solid fa-lock text-xs mr-1"></i>Your booking OTP will be sent to this email address
+      </p>
+    </div>
+
+    <!-- Service Category -->
+    <div class="booking-card rounded-2xl p-4 card-shadow">
+      <label class="booking-label flex items-center gap-2 text-xs font-semibold uppercase tracking-wider mb-2" style="color:#b45309;">
+        <i class="fa-solid fa-spa w-4 text-center" style="color:#d97706;"></i>
+        Service Category <span class="text-red-400">*</span>
+      </label>
+      <div class="relative">
+        <select
+          name="category" id="category"
+          onchange="updateServices()"
+          required
+           class="booking-field w-full rounded-xl px-4 py-3 text-gray-700 appearance-none focus:outline-none transition pr-10"
+          style="border:1.5px solid #fde68a; background:#fffbf0; font-size:16px;"
+          onfocus="this.style.borderColor='#d97706';"
+          onblur="this.style.borderColor='#fde68a';"
+        >
+          <option value="">— Select a Category —</option>
+          {% for category in services.keys() %}
+          <option value="{{ category }}" {% if form.get('category') == category %}selected{% endif %}>{{ category }}</option>
+          {% endfor %}
+        </select>
+        <i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-xs pointer-events-none" style="color:#d97706;"></i>
+      </div>
+    </div>
+
+    <!-- Specific Service -->
+    <div class="booking-card rounded-2xl p-4 card-shadow">
+      <label class="booking-label flex items-center gap-2 text-xs font-semibold uppercase tracking-wider mb-2" style="color:#b45309;">
+        <i class="fa-solid fa-wand-magic-sparkles w-4 text-center" style="color:#d97706;"></i>
+        Specific Service <span class="text-red-400">*</span>
+      </label>
+      <div class="relative">
+        <select
+          name="service" id="service"
+          required
+           class="booking-field w-full rounded-xl px-4 py-3 text-gray-700 appearance-none focus:outline-none transition pr-10"
+          style="border:1.5px solid #fde68a; background:#fffbf0; font-size:16px;"
+          onfocus="this.style.borderColor='#d97706';"
+          onblur="this.style.borderColor='#fde68a';"
+        >
+          <option value="">— Select a Service —</option>
+          {% if form.get('category') and form.get('service') %}
+            {% for s in services[form['category']] %}
+            <option value="{{ s }}" {% if form.get('service') == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          {% endif %}
+        </select>
+        <i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-xs pointer-events-none" style="color:#d97706;"></i>
+      </div>
+    </div>
+
+    <!-- Preferred Date -->
+    <div class="booking-card rounded-2xl p-4 card-shadow">
+      <label class="booking-label flex items-center gap-2 text-xs font-semibold uppercase tracking-wider mb-2" style="color:#b45309;">
+        <i class="fa-solid fa-calendar-days w-4 text-center" style="color:#d97706;"></i>
+        Preferred Date <span class="text-red-400">*</span>
+      </label>
+      <input
+        type="date" name="date"
+        value="{{ form.get('date', '') }}"
+        required
+        class="booking-field w-full rounded-xl px-4 py-3 text-gray-700 focus:outline-none transition"
+        style="border:1.5px solid #fde68a; background:#fffbf0; font-size:16px;"
+        onfocus="this.style.borderColor='#d97706';"
+        onblur="this.style.borderColor='#fde68a';"
+      />
+    </div>
+
+    <!-- Time Slot -->
+    <div class="booking-card rounded-2xl p-4 card-shadow">
+      <label class="booking-label flex items-center gap-2 text-xs font-semibold uppercase tracking-wider mb-2" style="color:#b45309;">
+        <i class="fa-solid fa-clock w-4 text-center" style="color:#d97706;"></i>
+        Time Slot <span class="text-red-400">*</span>
+      </label>
+      <div class="relative">
+        <select
+          name="time"
+          required
+           class="booking-field w-full rounded-xl px-4 py-3 text-gray-700 appearance-none focus:outline-none transition pr-10"
+          style="border:1.5px solid #fde68a; background:#fffbf0; font-size:16px;"
+          onfocus="this.style.borderColor='#d97706';"
+          onblur="this.style.borderColor='#fde68a';"
+        >
+          <option value="">— Choose a Time —</option>
+          {% for slot in time_slots %}
+          <option value="{{ slot }}" {% if form.get('time') == slot %}selected{% endif %}>{{ slot }}</option>
+          {% endfor %}
+        </select>
+        <i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-xs pointer-events-none" style="color:#d97706;"></i>
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <button
+      type="submit"
+      class="btn-gold w-full py-4 rounded-2xl text-base font-bold shadow-lg flex items-center justify-center gap-2 mt-2"
+    >
+      <i class="fa-solid fa-calendar-check"></i>
+      Confirm Booking
+      <i class="fa-solid fa-arrow-right text-sm opacity-80"></i>
+    </button>
+
+  </form>
+
+  <!-- Note -->
+  <div class="flex items-start gap-2 mt-4 px-2">
+    <i class="fa-solid fa-envelope text-pink-400 mt-0.5 flex-shrink-0"></i>
+    <p class="text-xs text-gray-400">
+      A 6-digit OTP will be emailed to verify your booking. No spam, ever.
+    </p>
+  </div>
+</div>
+
+<script>
+  document.getElementById('bookingForm')?.addEventListener('submit', function() {
+    const submit = this.querySelector('button[type="submit"]');
+    if (submit) {
+      submit.disabled = true;
+      submit.style.opacity = '0.7';
+      submit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending verification code…';
+    }
+  });
+
+  const savedCat = "{{ form.get('category', '') }}";
+  const savedSvc = "{{ form.get('service', '') }}";
+  if (savedCat) {
+    document.getElementById('category').value = savedCat;
+    updateServices();
+    if (savedSvc) {
+      setTimeout(() => { document.getElementById('service').value = savedSvc; }, 50);
+    }
+  }
+</script>
+{% endblock %}

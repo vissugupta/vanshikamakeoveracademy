@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}Verify OTP — My Account{% endblock %}
+
+{% block head %}
+<style>
+  .otp-input {
+    width: 48px; height: 56px;
+    text-align: center; font-size: 24px; font-weight: 700;
+    border: 2px solid #fde68a; border-radius: 12px;
+    background: #fffbf0; color: #92400e;
+    transition: border-color 0.2s, background 0.2s, transform 0.1s;
+    caret-color: #d97706;
+  }
+  .otp-input:focus { outline: none; border-color: #d97706; background: #fff; transform: scale(1.05); }
+  .otp-input.filled { border-color: #d97706; background: #fff; }
+  .otp-input.error  { border-color: #ef4444; background: #fef2f2; animation: shake 0.4s; }
+  @keyframes shake {
+    0%,100%{ transform:translateX(0); }
+    20%    { transform:translateX(-4px); }
+    40%    { transform:translateX(4px);  }
+    60%    { transform:translateX(-4px); }
+    80%    { transform:translateX(4px);  }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pt-6 pb-4">
+
+  <!-- Header -->
+  <div class="relative rounded-2xl overflow-hidden mb-6" style="height:130px;">
+    <div class="absolute inset-0" style="background:linear-gradient(135deg,#9d174d,#be185d 60%,#b45309);"></div>
+    <div class="absolute top-0 left-0 right-0" style="height:3px; background:linear-gradient(90deg,#92400e,#fbbf24,#d97706,#fbbf24,#92400e);"></div>
+    <div class="absolute inset-0 flex flex-col items-center justify-center">
+      <div class="w-12 h-12 rounded-full flex items-center justify-center mb-2"
+           style="background:linear-gradient(135deg,#d97706,#fbbf24); box-shadow:0 4px 16px rgba(180,83,9,0.4);">
+        <i class="fa-solid fa-envelope-open-text text-white text-lg"></i>
+      </div>
+       <h1 class="font-display text-2xl font-bold text-white drop-shadow-sm">Verify Your Login</h1>
+       <p class="text-yellow-200 text-xs mt-1 tracking-wide">Enter the OTP sent to your registered email</p>
+    </div>
+  </div>
+
+  <!-- Email hint -->
+  <div class="flex items-center justify-center gap-2 mb-5">
+    <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background:linear-gradient(135deg,#fce7f3,#fde68a);">
+      <i class="fa-solid fa-envelope text-xs" style="color:#b45309;"></i>
+    </div>
+    <p class="text-sm font-medium" style="color:#92400e;">
+       Login OTP sent to <span class="font-bold">{{ masked_email }}</span>
+    </p>
+  </div>
+
+  {% if error %}
+  <div class="rounded-2xl p-4 mb-4 flex gap-3" style="background:#fef2f2; border:1px solid #fecaca;">
+    <i class="fa-solid fa-circle-exclamation text-red-400 mt-0.5 flex-shrink-0"></i>
+    <div class="text-red-700 text-sm">{{ error }}</div>
+  </div>
+  {% endif %}
+
+  <!-- OTP Card -->
+  <div class="bg-white rounded-2xl p-6 card-shadow mb-4" style="border:1.5px solid #fde68a;">
+
+    <!-- Timer -->
+    <div class="flex flex-col items-center mb-6">
+      <div class="relative w-16 h-16 mb-2">
+        <svg class="w-16 h-16 -rotate-90" viewBox="0 0 72 72">
+          <circle cx="36" cy="36" r="32" fill="none" stroke="#fde68a" stroke-width="5"/>
+          <circle cx="36" cy="36" r="32" fill="none" stroke="#d97706" stroke-width="5"
+                  stroke-dasharray="201" stroke-dashoffset="0"
+                  stroke-linecap="round" id="timerRing"/>
+        </svg>
+        <div class="absolute inset-0 flex items-center justify-center">
+          <span id="timerText" class="text-sm font-bold" style="color:#b45309;">10:00</span>
+        </div>
+      </div>
+      <p class="text-xs text-gray-400">OTP expires in</p>
+    </div>
+
+    <!-- OTP Boxes -->
+    <form method="POST" action="/my/login/verify" id="otpForm">
+      <div class="flex items-center justify-center gap-2 mb-6" id="otpBoxes">
+        <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="otp0" autocomplete="off"/>
+        <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="otp1" autocomplete="off"/>
+        <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="otp2" autocomplete="off"/>
+        <span class="text-2xl font-bold" style="color:#fde68a;">—</span>
+        <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="otp3" autocomplete="off"/>
+        <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="otp4" autocomplete="off"/>
+        <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="otp5" autocomplete="off"/>
+      </div>
+      <input type="hidden" name="otp" id="otpHidden"/>
+
+      {% if attempts_left < 3 %}
+      <div class="text-center mb-4">
+        <span class="text-xs font-medium px-3 py-1 rounded-full" style="background:#fef3c7; color:#92400e;">
+          <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+          {{ attempts_left }} attempt{{ 's' if attempts_left != 1 else '' }} remaining
+        </span>
+      </div>
+      {% endif %}
+
+      <button type="submit" id="verifyBtn"
+        class="btn-gold w-full py-4 rounded-2xl text-base font-bold shadow-lg flex items-center justify-center gap-2 opacity-50 cursor-not-allowed"
+        disabled>
+        <i class="fa-solid fa-shield-halved"></i>
+        Sign In
+        <i class="fa-solid fa-arrow-right text-sm opacity-80"></i>
+      </button>
+    </form>
+  </div>
+
+  <!-- Resend -->
+  <div class="text-center mb-4">
+    <p class="text-xs text-gray-400 mb-2">Didn't receive it? Check your spam folder too.</p>
+    <form method="POST" action="/my/login/resend">
+      <button type="submit" id="resendBtn"
+        class="text-sm font-semibold flex items-center gap-1.5 mx-auto px-4 py-2 rounded-full transition"
+        style="color:#b45309; background:#fef3c7; border:1px solid #fde68a;"
+        {% if resend_blocked %}disabled{% endif %}>
+        <i class="fa-solid fa-rotate-right"></i>
+        Resend OTP
+      </button>
+    </form>
+  </div>
+
+  <!-- Back -->
+  <div class="text-center">
+    <a href="/my/login" class="text-xs text-gray-400 flex items-center justify-center gap-1">
+      <i class="fa-solid fa-arrow-left text-xs"></i> Use a different number
+    </a>
+  </div>
+</div>
+
+<script>
+  const boxes  = [0,1,2,3,4,5].map(i => document.getElementById('otp' + i));
+  const hidden = document.getElementById('otpHidden');
+  const btn    = document.getElementById('verifyBtn');
+
+  function updateHidden() {
+    const val = boxes.map(b => b.value).join('');
+    hidden.value = val;
+    const full = val.length === 6;
+    btn.disabled = !full;
+    btn.classList.toggle('opacity-50', !full);
+    btn.classList.toggle('cursor-not-allowed', !full);
+  }
+
+  boxes.forEach((box, idx) => {
+    box.addEventListener('input', e => {
+      const v = e.target.value.replace(/\D/g,'');
+      box.value = v ? v.slice(-1) : '';
+      box.classList.toggle('filled', !!box.value);
+      if (v && idx < 5) boxes[idx+1].focus();
+      updateHidden();
+    });
+    box.addEventListener('keydown', e => {
+      if (e.key === 'Backspace' && !box.value && idx > 0) boxes[idx-1].focus();
+      if (e.key === 'ArrowLeft'  && idx > 0) boxes[idx-1].focus();
+      if (e.key === 'ArrowRight' && idx < 5) boxes[idx+1].focus();
+    });
+    box.addEventListener('paste', e => {
+      e.preventDefault();
+      const paste = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g,'');
+      paste.split('').slice(0,6).forEach((ch, i) => {
+        if (boxes[i]) { boxes[i].value = ch; boxes[i].classList.add('filled'); }
+      });
+      const next = Math.min(paste.length, 5);
+      boxes[next].focus();
+      updateHidden();
+    });
+  });
+
+  {% if error %}
+  boxes.forEach(b => { b.classList.add('error'); setTimeout(() => b.classList.remove('error'), 500); });
+  boxes.forEach(b => b.value = '');
+  {% endif %}
+  boxes[0].focus();
+
+  // Countdown timer
+  const totalSeconds = {{ expire_seconds }};
+  let remaining = totalSeconds;
+  const ring = document.getElementById('timerRing');
+  const timerText = document.getElementById('timerText');
+  const circumference = 201;
+
+  function updateTimer() {
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    timerText.textContent = m + ':' + String(s).padStart(2,'0');
+    const offset = circumference * (1 - remaining / totalSeconds);
+    ring.style.strokeDashoffset = offset;
+    if (remaining <= 60) ring.style.stroke = '#ef4444';
+    if (remaining <= 0) {
+      timerText.textContent = '0:00';
+      timerText.style.color = '#ef4444';
+      btn.disabled = true; btn.classList.add('opacity-50','cursor-not-allowed');
+      clearInterval(timer);
+    }
+    remaining--;
+  }
+  updateTimer();
+  const timer = setInterval(updateTimer, 1000);
+</script>
+{% endblock %}

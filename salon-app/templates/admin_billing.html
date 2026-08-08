@@ -1,0 +1,118 @@
+{% extends "admin_base.html" %}
+{% block title %}Billing — VMA ERP{% endblock %}
+{% block page_title %}Billing{% endblock %}
+
+{% block content %}
+<!-- Header actions -->
+<div class="flex items-center gap-2 mb-4">
+  <a href="{{ url_for('admin_billing_new') }}"
+     class="btn-rose px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2">
+    <i class="fa-solid fa-plus"></i> New Invoice
+  </a>
+  <div class="flex-1"></div>
+</div>
+
+<!-- Revenue summary cards -->
+<div class="grid grid-cols-3 gap-2 mb-4">
+  <div class="stat-card text-center">
+    <div class="text-lg font-bold font-display" style="color:#065f46;">₹{{ '%.0f'|format(rev_today) }}</div>
+    <div class="text-xs text-gray-500 mt-0.5">Today</div>
+  </div>
+  <div class="stat-card text-center">
+    <div class="text-lg font-bold font-display" style="color:#065f46;">₹{{ '%.0f'|format(rev_week) }}</div>
+    <div class="text-xs text-gray-500 mt-0.5">This Week</div>
+  </div>
+  <div class="stat-card text-center">
+    <div class="text-lg font-bold font-display" style="color:#065f46;">₹{{ '%.0f'|format(rev_month) }}</div>
+    <div class="text-xs text-gray-500 mt-0.5">This Month</div>
+  </div>
+</div>
+
+<!-- Filter bar -->
+<form method="get" class="bg-white rounded-2xl p-3 mb-4 card-shadow flex flex-wrap gap-2 items-end"
+      style="border:1px solid #fde68a;">
+  <div class="flex-1 min-w-0">
+    <label class="text-xs text-gray-500 font-medium">Search</label>
+    <input name="q" value="{{ q }}" placeholder="Customer name or phone…"
+           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mt-0.5"/>
+  </div>
+  <div>
+    <label class="text-xs text-gray-500 font-medium">From</label>
+    <input type="date" name="date_from" value="{{ date_from }}"
+           class="border border-gray-200 rounded-lg px-2 py-2 text-sm mt-0.5 block"/>
+  </div>
+  <div>
+    <label class="text-xs text-gray-500 font-medium">To</label>
+    <input type="date" name="date_to" value="{{ date_to }}"
+           class="border border-gray-200 rounded-lg px-2 py-2 text-sm mt-0.5 block"/>
+  </div>
+  <div>
+    <label class="text-xs text-gray-500 font-medium">Status</label>
+    <select name="status" class="border border-gray-200 rounded-lg px-2 py-2 text-sm mt-0.5 block">
+      <option value="">All</option>
+      <option value="paid" {% if status_filter=='paid' %}selected{% endif %}>Paid</option>
+      <option value="unpaid" {% if status_filter=='unpaid' %}selected{% endif %}>Unpaid</option>
+    </select>
+  </div>
+  <div>
+    <label class="text-xs text-gray-500 font-medium">Payment</label>
+    <select name="payment" class="border border-gray-200 rounded-lg px-2 py-2 text-sm mt-0.5 block">
+      <option value="">All</option>
+      <option value="cash" {% if payment_filter=='cash' %}selected{% endif %}>Cash</option>
+      <option value="card" {% if payment_filter=='card' %}selected{% endif %}>Card</option>
+      <option value="upi" {% if payment_filter=='upi' %}selected{% endif %}>UPI</option>
+    </select>
+  </div>
+  <button type="submit" class="btn-gold px-3 py-2 rounded-lg text-sm font-semibold">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+  {% if q or date_from or date_to or status_filter or payment_filter %}
+  <a href="{{ url_for('admin_billing') }}" class="px-3 py-2 rounded-lg text-sm text-gray-500 border border-gray-200">Clear</a>
+  {% endif %}
+</form>
+
+<!-- Invoice list -->
+{% if invoices %}
+<div class="space-y-2">
+  {% for inv in invoices %}
+  <a href="{{ url_for('admin_invoice_detail', inv_id=inv.id) }}"
+     class="bg-white rounded-2xl p-3 card-shadow flex items-center gap-3 block"
+     style="border:1px solid #fde68a;">
+    <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center"
+         style="background:linear-gradient(135deg,#fce7f3,#fde68a);">
+      <i class="fa-solid fa-file-invoice text-sm" style="color:#b45309;"></i>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2">
+        <span class="font-semibold text-sm text-gray-800 truncate">
+          {{ inv.customer_name or 'Walk-in' }}
+        </span>
+        <span class="badge {% if inv.status == 'paid' %}badge-green{% else %}badge-red{% endif %}" style="font-size:10px;">
+          {{ inv.status | capitalize }}
+        </span>
+      </div>
+      <div class="text-xs text-gray-400 mt-0.5">
+        #{{ inv.id }} · {{ inv.created_at[:10] }} ·
+        {% if inv.payment_method == 'cash' %}💵 Cash
+        {% elif inv.payment_method == 'card' %}💳 Card
+        {% else %}📱 UPI{% endif %}
+      </div>
+    </div>
+    <div class="text-right flex-shrink-0">
+      <div class="font-bold text-sm" style="color:#065f46;">₹{{ '%.0f'|format(inv.total) }}</div>
+      <div class="text-xs text-gray-400">{{ inv.item_count }} item{{ 's' if inv.item_count != 1 else '' }}</div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-2xl p-8 card-shadow text-center" style="border:1px solid #fde68a;">
+  <div class="text-4xl mb-3">🧾</div>
+  <div class="font-display font-bold text-gray-700 mb-1">No invoices yet</div>
+  <div class="text-sm text-gray-400 mb-4">Create your first invoice to track sales</div>
+  <a href="{{ url_for('admin_billing_new') }}" class="btn-rose px-4 py-2 rounded-xl text-sm font-semibold inline-block">
+    Create Invoice
+  </a>
+</div>
+{% endif %}
+{% endblock %}

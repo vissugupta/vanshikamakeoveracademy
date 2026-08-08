@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Admin Login — Vanshika Makeover Academy{% endblock %}
+
+{% block content %}
+<div class="pt-12 pb-8">
+
+  <!-- Logo + title -->
+  <div class="text-center mb-8">
+    <div class="inline-block relative mb-4">
+      <img src="{{ url_for('static', filename='brand-logo.jpeg') }}"
+           alt="Vanshika Makeover Academy logo"
+           class="w-28 h-28 rounded-2xl object-cover"
+           style="border:1.5px solid rgba(201,169,110,.5); box-shadow:0 0 32px rgba(212,175,55,.25);" />
+      <!-- Gold glow ring -->
+      <div class="absolute inset-0 rounded-2xl pointer-events-none"
+           style="box-shadow:0 0 0 3px rgba(201,169,110,.15), 0 0 0 6px rgba(201,169,110,.07);"></div>
+    </div>
+    <h1 class="font-display text-2xl font-bold mb-1" style="color:#f5f0e8;">Admin Access</h1>
+    <p class="text-sm" style="color:#6e6058;">Vanshika Makeover Academy — Dashboard</p>
+  </div>
+
+  {% if error %}
+  <div class="rounded-2xl px-4 py-3 mb-5 flex items-center gap-2"
+       style="background:#1f0d0d; border:1px solid #5a2d2d; color:#fca5a5;">
+    <i class="fa-solid fa-circle-exclamation flex-shrink-0"></i>
+    <span class="text-sm">{{ error }}</span>
+  </div>
+  {% endif %}
+
+  <div class="rounded-2xl p-6 mb-4"
+       style="background:#111111; border:1px solid rgba(201,169,110,.18); box-shadow:0 8px 40px rgba(0,0,0,.6);">
+
+    <!-- Ornament -->
+    <div class="flex items-center gap-3 mb-6">
+      <div class="flex-1 h-px" style="background:linear-gradient(90deg,transparent,rgba(201,169,110,.4));"></div>
+      <i class="fa-solid fa-lock text-xs" style="color:#c9a96e;"></i>
+      <div class="flex-1 h-px" style="background:linear-gradient(90deg,rgba(201,169,110,.4),transparent);"></div>
+    </div>
+
+    <form method="POST" action="/admin" class="space-y-4">
+      <div>
+        <label class="block text-xs font-semibold tracking-wider uppercase mb-2" style="color:#c9a96e;">
+          Email Address
+        </label>
+        <input
+          type="email" name="email"
+          placeholder="you@vanshika.com"
+          required autofocus autocomplete="username"
+          class="w-full rounded-xl px-4 py-3 focus:outline-none transition"
+          style="border:1px solid rgba(201,169,110,.25);"
+          onfocus="this.style.borderColor='rgba(212,175,55,.6)'"
+          onblur="this.style.borderColor='rgba(201,169,110,.25)'"
+        />
+      </div>
+      <div>
+        <label class="block text-xs font-semibold tracking-wider uppercase mb-2" style="color:#c9a96e;">
+          Password
+        </label>
+        <input
+          type="password" name="password"
+          placeholder="Enter your password"
+          required autocomplete="current-password"
+          class="w-full rounded-xl px-4 py-3 focus:outline-none transition"
+          style="border:1px solid rgba(201,169,110,.25);"
+          onfocus="this.style.borderColor='rgba(212,175,55,.6)'"
+          onblur="this.style.borderColor='rgba(201,169,110,.25)'"
+        />
+      </div>
+      <button type="submit"
+              class="btn-gold w-full py-4 rounded-2xl text-base font-bold shadow-lg mt-2"
+              style="background:linear-gradient(135deg,#a07840,#c9a96e,#d4af37); color:#0a0a0a; box-shadow:0 4px 24px rgba(201,169,110,.3);">
+        <i class="fa-solid fa-unlock mr-2"></i>Sign In to Dashboard
+      </button>
+    </form>
+  </div>
+
+  <p class="text-center text-xs mb-2" style="color:#3e3830;">Restricted area. Authorised personnel only.</p>
+  <p class="text-center text-xs">
+    <a href="{{ url_for('staff_login') }}" class="font-medium hover:underline" style="color:#c9a96e;">
+      <i class="fa-solid fa-user-tie mr-1"></i>Staff portal login →
+    </a>
+  </p>
+</div>
+{% endblock %}

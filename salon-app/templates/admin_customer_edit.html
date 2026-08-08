@@ -1,0 +1,61 @@
+{% extends "admin_base.html" %}
+{% block title %}Edit Customer — VMA ERP{% endblock %}
+{% block page_title %}Edit Customer{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-2xl p-5 card-shadow" style="border:1px solid #fde68a;">
+  <div class="flex items-center gap-3 mb-5">
+    <div class="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-lg"
+         style="background:linear-gradient(135deg,#9d174d,#be185d);">
+      {{ customer['name'][0].upper() }}
+    </div>
+    <div>
+      <div class="font-display font-bold text-gray-800">{{ customer['name'] }}</div>
+      <div class="text-xs text-gray-400">{{ customer['phone'] }}</div>
+    </div>
+  </div>
+
+  <form method="POST" class="space-y-4">
+    <div>
+      <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Full Name</label>
+      <input type="text" name="name" value="{{ customer['name'] }}" required
+             class="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+             style="border:1.5px solid #fde68a; background:#fffbf0;">
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Email</label>
+      <input type="email" name="email" value="{{ customer['email'] or '' }}"
+             class="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+             style="border:1.5px solid #fde68a; background:#fffbf0;"
+             placeholder="customer@email.com">
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Birthday</label>
+      <input type="date" name="birthday" value="{{ customer['birthday'] or '' }}"
+             class="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+             style="border:1.5px solid #fde68a; background:#fffbf0;">
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Loyalty Points</label>
+      <input type="number" name="loyalty_points" value="{{ customer['loyalty_points'] }}" min="0"
+             class="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+             style="border:1.5px solid #fde68a; background:#fffbf0;">
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Notes</label>
+      <textarea name="notes" rows="3"
+                class="w-full rounded-xl px-4 py-3 text-sm focus:outline-none resize-none"
+                style="border:1.5px solid #fde68a; background:#fffbf0;"
+                placeholder="Preferences, allergies, special notes…">{{ customer['notes'] or '' }}</textarea>
+    </div>
+    <div class="flex gap-3 pt-2">
+      <a href="{{ url_for('admin_customer_detail', cust_id=customer['id']) }}"
+         class="flex-1 text-center py-3 rounded-xl text-sm font-semibold text-gray-600"
+         style="background:#f3f4f6; border:1px solid #e5e7eb;">Cancel</a>
+      <button type="submit" class="btn-gold flex-1 py-3 rounded-xl text-sm font-semibold">
+        <i class="fa-solid fa-check mr-1"></i> Save Changes
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

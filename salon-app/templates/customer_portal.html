@@ -1,0 +1,442 @@
+{% extends "base.html" %}
+{% block title %}My Account — Vanshika Makeover Academy{% endblock %}
+
+{% block content %}
+<div class="pt-5 pb-4">
+
+  <!-- Header -->
+  <div class="relative rounded-2xl overflow-hidden mb-5" style="height:130px;">
+    <div class="absolute inset-0" style="background:linear-gradient(135deg,#9d174d,#be185d 60%,#b45309);"></div>
+    <div class="absolute top-0 left-0 right-0" style="height:3px; background:linear-gradient(90deg,#92400e,#fbbf24,#d97706,#fbbf24,#92400e);"></div>
+    <div class="absolute inset-0 flex flex-col items-center justify-center px-4">
+      <img src="{{ url_for('static', filename='brand-logo.jpeg') }}"
+           alt="Vanshika Makeover Academy logo"
+           class="w-14 h-14 rounded-xl object-cover mb-2 border-2 border-yellow-300 shadow-lg" />
+      <h1 class="font-display text-xl font-bold text-white drop-shadow-sm">
+        Hello, {{ customer.name.split()[0] if customer else 'Guest' }} 👑
+      </h1>
+      <p class="text-yellow-200 text-xs mt-0.5 tracking-wide">{{ customer.phone }}</p>
+    </div>
+    <!-- Logout button -->
+    <form method="POST" action="/my/logout" class="absolute top-3 right-3">
+      <button type="submit" class="text-xs text-white px-3 py-1.5 rounded-full flex items-center gap-1"
+              style="background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.3);">
+        <i class="fa-solid fa-right-from-bracket text-xs"></i> Logout
+      </button>
+    </form>
+  </div>
+
+  {# ── Membership expiry banner ─────────────────────────────────────────── #}
+  {% if membership %}
+    {% if expiry_days is not none and expiry_days <= 7 %}
+    <div class="rounded-2xl p-4 mb-4 flex gap-3" style="background:linear-gradient(135deg,#fef2f2,#fce7f3); border:1.5px solid #fca5a5;">
+      <i class="fa-solid fa-triangle-exclamation text-red-500 flex-shrink-0 mt-0.5"></i>
+      <div>
+        <div class="text-sm font-bold text-red-700 mb-0.5">Membership Expiring Soon</div>
+        <div class="text-xs text-red-600">
+          Your <strong>{{ membership.plan_name }}</strong> membership expires in
+          <strong>{{ expiry_days }} day{{ 's' if expiry_days != 1 else '' }}</strong>.
+          Contact the salon to renew.
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  {% endif %}
+
+  {# ── Stats row ──────────────────────────────────────────────────────── #}
+  <div class="grid grid-cols-3 gap-3 mb-5">
+    <div class="bg-white rounded-2xl p-3 text-center card-shadow" style="border:1px solid #fde68a;">
+      <div class="text-2xl font-bold gold-text-static">{{ customer.visit_count or 0 }}</div>
+      <div class="text-xs text-gray-400 mt-0.5">Visits</div>
+    </div>
+    <div class="bg-white rounded-2xl p-3 text-center card-shadow" style="border:1px solid #fde68a;">
+      <div class="text-2xl font-bold gold-text-static">{{ customer.loyalty_points or 0 }}</div>
+      <div class="text-xs text-gray-400 mt-0.5">Points</div>
+    </div>
+    <div class="bg-white rounded-2xl p-3 text-center card-shadow" style="border:1px solid #fde68a;">
+      {% if membership %}
+      <div class="text-sm font-bold text-emerald-600 mt-1"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="text-xs text-gray-400 mt-0.5 truncate">Member</div>
+      {% else %}
+      <div class="text-sm font-bold text-gray-300 mt-1"><i class="fa-solid fa-circle-xmark"></i></div>
+      <div class="text-xs text-gray-400 mt-0.5">No Plan</div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ── Loyalty Points ────────────────────────────────────────────────── #}
+  <div class="mb-5">
+    <div class="ornament-line mb-3" style="font-size:10px;">
+      <i class="fa-solid fa-star text-xs" style="color:#d97706;"></i>
+      Loyalty Points
+      <i class="fa-solid fa-star text-xs" style="color:#d97706;"></i>
+    </div>
+    <div class="bg-white rounded-2xl card-shadow overflow-hidden" style="border:1px solid #fde68a;">
+
+      {# ── Points balance hero ── #}
+      <div class="p-4" style="background:linear-gradient(135deg,#fffbf0,#fff8e7);">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                 style="background:linear-gradient(135deg,#d97706,#fbbf24); box-shadow:0 4px 12px rgba(180,83,9,0.3);">
+              <i class="fa-solid fa-coins text-white text-base"></i>
+            </div>
+            <div>
+              <div class="text-2xl font-bold" style="color:#92400e;">{{ customer.loyalty_points or 0 }} pts</div>
+              <div class="text-xs text-gray-400 mt-0.5">Current balance · 1 pt = ₹1</div>
+            </div>
+          </div>
+          <div class="text-right flex-shrink-0">
+            <div class="text-lg font-bold text-emerald-600">₹{{ customer.loyalty_points or 0 }}</div>
+            <div class="text-xs text-gray-400">redeemable value</div>
+          </div>
+        </div>
+        <div class="mt-3 pt-2 text-xs" style="border-top:1px solid #fef3c7; color:#92400e;">
+          Earn 50 points for every ₹1,000 spent.
+          {% if customer.loyalty_points_expiry_date %}
+          Use your points by {{ customer.loyalty_points_expiry_date }} or they will reset.
+          {% endif %}
+        </div>
+      </div>
+
+      {# ── Active reservation banner ── #}
+      {% if customer.points_reserved and customer.points_reserved > 0 %}
+      <div class="px-4 py-3" style="border-top:1px solid #fef3c7; background:linear-gradient(135deg,#f0fdf4,#ecfdf5);">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+               style="background:linear-gradient(135deg,#059669,#10b981);">
+            <i class="fa-solid fa-circle-check text-white text-sm"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-bold text-emerald-800 mb-0.5">
+              {{ customer.points_reserved }} pts (₹{{ customer.points_reserved }}) reserved for your next visit!
+            </div>
+            <div class="text-xs text-emerald-700 mb-2">
+              Just mention it at checkout — the staff will see your reservation and apply the ₹{{ customer.points_reserved }} discount.
+            </div>
+            <form method="POST" action="/my/loyalty/clear"
+                  onsubmit="return confirm('Cancel your {{ customer.points_reserved }}-point reservation and return them to your balance?');">
+              <button type="submit"
+                      class="text-xs px-3 py-1.5 rounded-lg font-semibold"
+                      style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5;">
+                <i class="fa-solid fa-xmark mr-1"></i>Cancel Reservation
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% elif customer.loyalty_points and customer.loyalty_points > 0 %}
+      {# ── Reserve points for next visit ── #}
+      <div class="px-4 py-3" style="border-top:1px solid #fef3c7; background:linear-gradient(135deg,#fffbf0,#fefce8);">
+        <div class="text-xs font-semibold mb-2" style="color:#92400e;">
+          <i class="fa-solid fa-ticket mr-1" style="color:#d97706;"></i>Use my points on next visit
+        </div>
+        <form method="POST" action="/my/loyalty/reserve" class="flex items-center gap-2">
+          <input type="number" name="points_amount"
+                 min="1" max="{{ customer.loyalty_points }}"
+                 value="{{ customer.loyalty_points }}"
+                 class="border border-yellow-300 rounded-xl px-3 py-2 text-sm font-semibold"
+                 style="width:90px; color:#92400e;"
+                 required/>
+          <span class="text-xs text-gray-500 flex-shrink-0">of {{ customer.loyalty_points }} pts</span>
+          <button type="submit"
+                  class="flex-1 text-center text-xs font-bold py-2 rounded-xl"
+                  style="background:linear-gradient(135deg,#d97706,#fbbf24); color:#fff; box-shadow:0 2px 8px rgba(180,83,9,0.25);">
+            <i class="fa-solid fa-coins mr-1"></i>Reserve Points
+          </button>
+        </form>
+        <p class="text-xs text-gray-400 mt-1.5">
+          Points are held for your next visit and shown to staff when creating your invoice.
+        </p>
+      </div>
+      {% endif %}
+
+      {# ── How it works ── #}
+      <div class="px-4 py-3" style="border-top:1px solid #fef3c7; background:#fffdf7;">
+        <div class="text-xs font-semibold mb-2" style="color:#92400e;">
+          <i class="fa-solid fa-circle-info mr-1" style="color:#d97706;"></i>How you earn &amp; redeem
+        </div>
+        <div class="space-y-1.5">
+          <div class="flex items-start gap-2 text-xs text-gray-500">
+            <i class="fa-solid fa-receipt mt-0.5 flex-shrink-0" style="color:#d97706;"></i>
+            <span><strong class="text-gray-700">1 point per ₹100 spent</strong> — credited automatically when your invoice is settled</span>
+          </div>
+          <div class="flex items-start gap-2 text-xs text-gray-500">
+            <i class="fa-solid fa-indian-rupee-sign mt-0.5 flex-shrink-0" style="color:#d97706;"></i>
+            <span><strong class="text-gray-700">1 point = ₹1 off</strong> — reserve below and the discount applies automatically on your invoice</span>
+          </div>
+          <div class="flex items-start gap-2 text-xs text-gray-500">
+            <i class="fa-solid fa-calendar-check mt-0.5 flex-shrink-0" style="color:#d97706;"></i>
+            <span><strong class="text-gray-700">Points never expire</strong> as long as you visit at least once a year</span>
+          </div>
+        </div>
+      </div>
+
+      {# ── Points history from invoices ── #}
+      {% if invoices %}
+      <div class="px-4 pb-4" style="border-top:1px solid #fef3c7;">
+        <div class="text-xs font-semibold mt-3 mb-2" style="color:#92400e;">
+          <i class="fa-solid fa-clock-rotate-left mr-1" style="color:#d97706;"></i>Recent credits
+        </div>
+        <div class="space-y-1.5">
+          {% for inv in invoices %}
+          {% set pts_earned = (inv.total / 100) | int %}
+          {% if pts_earned > 0 %}
+          <div class="flex items-center justify-between text-xs">
+            <div class="flex items-center gap-2 text-gray-500">
+              <i class="fa-solid fa-circle-dot" style="color:#fbbf24; font-size:7px;"></i>
+              <span>Invoice #INV-{{ inv.id }}</span>
+              <span class="text-gray-300">·</span>
+              <span>{{ inv.created_at[:10] }}</span>
+            </div>
+            <span class="font-semibold px-2 py-0.5 rounded-full" style="background:#fef9c3; color:#92400e;">+{{ pts_earned }} pt{{ 's' if pts_earned != 1 else '' }}</span>
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  {# ── Active Membership ─────────────────────────────────────────────── #}
+  {% if membership %}
+  <div class="mb-5">
+    <div class="ornament-line mb-3" style="font-size:10px;">
+      <i class="fa-solid fa-id-card text-xs" style="color:#d97706;"></i>
+      Active Membership
+      <i class="fa-solid fa-id-card text-xs" style="color:#d97706;"></i>
+    </div>
+    <div class="bg-white rounded-2xl p-4 card-shadow" style="border:1px solid #fde68a; background:linear-gradient(135deg,#fffbf0,#fff);">
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+               style="background:linear-gradient(135deg,#d97706,#fbbf24);">
+            <i class="fa-solid fa-gem text-white text-sm"></i>
+          </div>
+          <div>
+            <div class="font-bold text-sm" style="color:#92400e;">{{ membership.plan_name }}</div>
+            <div class="text-xs text-gray-400">{{ membership.discount_pct | int }}% discount on services</div>
+          </div>
+        </div>
+        <div class="text-right flex-shrink-0">
+          {% if expiry_days is not none and expiry_days <= 7 %}
+          <span class="text-xs font-semibold px-2 py-1 rounded-full" style="background:#fef2f2; color:#dc2626;">
+            {{ expiry_days }}d left
+          </span>
+          {% else %}
+          <span class="text-xs font-semibold px-2 py-1 rounded-full" style="background:#f0fdf4; color:#166534;">
+            Active
+          </span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="mt-3 pt-3 flex items-center gap-1.5 text-xs text-gray-400"
+           style="border-top:1px solid #fde68a;">
+        <i class="fa-solid fa-calendar text-xs" style="color:#d97706;"></i>
+        Expires: <span class="font-medium" style="color:#92400e;">{{ membership.expiry_date }}</span>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Upcoming Appointments ─────────────────────────────────────────── #}
+  <div class="mb-5">
+    <div class="ornament-line mb-3" style="font-size:10px;">
+      <i class="fa-solid fa-calendar-check text-xs" style="color:#d97706;"></i>
+      Upcoming Appointments
+      <i class="fa-solid fa-calendar-check text-xs" style="color:#d97706;"></i>
+    </div>
+
+    {% if upcoming %}
+
+    {# Flash messages for cancel/reschedule actions #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+      <div class="rounded-xl px-4 py-3 mb-3 text-sm font-medium flex items-center gap-2
+        {% if category == 'error' %}bg-red-50 text-red-700 border border-red-200
+        {% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
+        <i class="fa-solid {% if category == 'error' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %} flex-shrink-0"></i>
+        {{ message }}
+      </div>
+      {% endfor %}
+    {% endwith %}
+
+    <div class="space-y-3">
+      {% for appt in upcoming %}
+      <div class="bg-white rounded-2xl p-4 card-shadow" style="border:1px solid #fde68a;">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                 style="background:linear-gradient(135deg,#fce7f3,#fde68a);">
+              <i class="fa-solid fa-spa text-sm" style="color:#b45309;"></i>
+            </div>
+            <div>
+              <div class="font-semibold text-sm text-gray-800">{{ appt.service }}</div>
+              <div class="text-xs text-gray-400">{{ appt.category }}</div>
+            </div>
+          </div>
+          <div class="text-right flex-shrink-0">
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full
+              {% if appt.status == 'confirmed' %}bg-emerald-50 text-emerald-700
+              {% elif appt.status == 'cancelled' %}bg-red-50 text-red-600
+              {% else %}bg-yellow-50 text-yellow-700{% endif %}">
+              {{ appt.status | capitalize }}
+            </span>
+          </div>
+        </div>
+        <div class="mt-2.5 pt-2.5 flex items-center gap-4 text-xs text-gray-400"
+             style="border-top:1px solid #fef3c7;">
+          <span class="flex items-center gap-1">
+            <i class="fa-solid fa-calendar-days" style="color:#d97706;"></i>
+            {{ appt.date }}
+          </span>
+          <span class="flex items-center gap-1">
+            <i class="fa-solid fa-clock" style="color:#d97706;"></i>
+            {{ appt.time }}
+          </span>
+        </div>
+
+        {# Cancel / Reschedule actions — only for non-cancelled appointments #}
+        {% if appt.status != 'cancelled' %}
+        <div class="mt-2.5 pt-2.5 flex items-center gap-2" style="border-top:1px solid #fef3c7;">
+          {# Reschedule: dedicated flow that updates the existing appointment #}
+          <a href="/my/appointments/{{ appt.id }}/reschedule"
+             class="flex-1 text-center text-xs font-semibold py-2 rounded-xl flex items-center justify-center gap-1.5"
+             style="background:linear-gradient(135deg,#fef3c7,#fde68a); color:#92400e; border:1px solid #fcd34d;">
+            <i class="fa-solid fa-calendar-days text-xs"></i>
+            Reschedule
+          </a>
+          {# Cancel: POST to cancel route with confirmation #}
+          <form method="POST" action="/my/appointments/{{ appt.id }}/cancel"
+                onsubmit="return confirm('Cancel your {{ appt.service }} appointment on {{ appt.date }}? This cannot be undone.');"
+                class="flex-1">
+            <button type="submit"
+                    class="w-full text-xs font-semibold py-2 rounded-xl flex items-center justify-center gap-1.5"
+                    style="background:#fef2f2; color:#dc2626; border:1px solid #fca5a5;">
+              <i class="fa-solid fa-xmark text-xs"></i>
+              Cancel
+            </button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-2xl p-5 card-shadow text-center" style="border:1px solid #fde68a;">
+      <i class="fa-regular fa-calendar text-3xl mb-2" style="color:#fde68a;"></i>
+      <p class="text-sm text-gray-400">No upcoming appointments</p>
+      <a href="/book"
+         class="btn-gold inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold mt-3 shadow">
+        <i class="fa-solid fa-calendar-plus"></i> Book Now
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ── Past Visits (Book Again) ─────────────────────────────────────── #}
+  {% if past %}
+  <div class="mb-5">
+    <div class="ornament-line mb-3" style="font-size:10px;">
+      <i class="fa-solid fa-clock-rotate-left text-xs" style="color:#d97706;"></i>
+      Past Visits
+      <i class="fa-solid fa-clock-rotate-left text-xs" style="color:#d97706;"></i>
+    </div>
+    <div class="space-y-3">
+      {% for appt in past %}
+      <div class="bg-white rounded-2xl p-4 card-shadow" style="border:1px solid #fde68a;">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+               style="background:linear-gradient(135deg,#fce7f3,#fde68a);">
+            <i class="fa-solid fa-spa text-sm" style="color:#b45309;"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-sm text-gray-800 truncate">{{ appt.service }}</div>
+            <div class="text-xs text-gray-400">{{ appt.date }}</div>
+          </div>
+          <a href="/book?category={{ appt.category | urlencode }}&service={{ appt.service | urlencode }}&name={{ customer.name | urlencode }}&phone={{ customer.phone | urlencode }}&email={{ customer.email | urlencode }}"
+             class="btn-gold text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 flex-shrink-0 shadow">
+            <i class="fa-solid fa-rotate-right text-xs"></i>
+            Book Again
+          </a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Recent Invoices ───────────────────────────────────────────────── #}
+  <div class="mb-5">
+    <div class="ornament-line mb-3" style="font-size:10px;">
+      <i class="fa-solid fa-receipt text-xs" style="color:#d97706;"></i>
+      Recent Invoices
+      <i class="fa-solid fa-receipt text-xs" style="color:#d97706;"></i>
+    </div>
+
+    {% if invoices %}
+    <div class="space-y-3">
+      {% for inv in invoices %}
+      <div class="bg-white rounded-2xl p-4 card-shadow" style="border:1px solid #fde68a;">
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                 style="background:linear-gradient(135deg,#fce7f3,#fde68a);">
+              <i class="fa-solid fa-receipt text-sm" style="color:#b45309;"></i>
+            </div>
+            <div>
+              <div class="font-semibold text-sm" style="color:#92400e;">#INV-{{ inv.id }}</div>
+              <div class="text-xs text-gray-400">{{ inv.created_at[:10] }}</div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="font-bold text-sm" style="color:#92400e;">₹{{ '%.0f' | format(inv.total) }}</div>
+            <span class="text-xs font-medium px-2 py-0.5 rounded-full
+              {% if inv.status == 'paid' %}bg-emerald-50 text-emerald-700
+              {% else %}bg-yellow-50 text-yellow-700{% endif %}">
+              {{ inv.status | capitalize }}
+            </span>
+          </div>
+        </div>
+        {% if inv.items %}
+        <div class="mt-2.5 pt-2.5 text-xs text-gray-400 truncate"
+             style="border-top:1px solid #fef3c7;">
+          <i class="fa-solid fa-list text-xs mr-1" style="color:#d97706;"></i>
+          {{ inv.items }}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-2xl p-5 card-shadow text-center" style="border:1px solid #fde68a;">
+      <i class="fa-regular fa-file-lines text-3xl mb-2" style="color:#fde68a;"></i>
+      <p class="text-sm text-gray-400">No invoices yet</p>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ── Quick Actions ─────────────────────────────────────────────────── #}
+  <div class="ornament-line mb-3" style="font-size:10px;">
+    <i class="fa-solid fa-bolt text-xs" style="color:#d97706;"></i>
+    Quick Actions
+    <i class="fa-solid fa-bolt text-xs" style="color:#d97706;"></i>
+  </div>
+  <div class="grid grid-cols-2 gap-3">
+    <a href="/book?name={{ customer.name | urlencode }}&phone={{ customer.phone | urlencode }}&email={{ customer.email | urlencode }}"
+       class="btn-gold py-3.5 rounded-2xl text-sm font-bold shadow flex flex-col items-center gap-1.5">
+      <i class="fa-solid fa-calendar-plus text-base"></i>
+      Book Appointment
+    </a>
+    <a href="/feedback"
+       class="py-3.5 rounded-2xl text-sm font-bold flex flex-col items-center gap-1.5"
+       style="background:#fff; border:1.5px solid #fde68a; color:#b45309;">
+      <i class="fa-solid fa-star text-base text-yellow-500"></i>
+      Leave Feedback
+    </a>
+  </div>
+
+</div>
+{% endblock %}

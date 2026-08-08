@@ -1,0 +1,163 @@
+{% extends "admin_base.html" %}
+{% block title %}{{ member.name }} — Staff — VMA ERP{% endblock %}
+{% block page_title %}{{ member.name }}{% endblock %}
+
+{% block content %}
+<!-- Profile header -->
+<div class="bg-white rounded-2xl p-4 card-shadow mb-4" style="border:1px solid #fde68a;">
+  <div class="flex items-center gap-4">
+    <div class="w-14 h-14 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-xl"
+         style="background:linear-gradient(135deg,#9d174d,#be185d);">
+      {{ member.name[0].upper() }}
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="font-display font-bold text-lg text-gray-800">{{ member.name }}</span>
+        <span class="badge {% if member.is_active %}badge-green{% else %}badge-gray{% endif %}">
+          {{ 'Active' if member.is_active else 'Inactive' }}
+        </span>
+      </div>
+      <div class="text-sm text-gray-500 mt-0.5">{{ member.role }}</div>
+      {% if member.phone %}
+      <div class="text-xs text-gray-400 mt-0.5"><i class="fa-solid fa-phone mr-1"></i>{{ member.phone }}</div>
+      {% endif %}
+      <div class="text-xs text-amber-700 font-semibold mt-1">
+        <i class="fa-solid fa-percent mr-1"></i>{{ member.commission_pct }}% commission rate
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick edit -->
+  <button onclick="document.getElementById('edit-modal').classList.remove('hidden')"
+          class="btn-gold w-full mt-3 py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-2">
+    <i class="fa-solid fa-pen"></i> Edit Profile
+  </button>
+</div>
+
+<!-- Weekly schedule preview -->
+{% if schedule %}
+<div class="bg-white rounded-2xl p-4 card-shadow mb-4" style="border:1px solid #fde68a;">
+  <div class="font-display font-bold text-sm mb-3" style="color:#9d174d;">Weekly Schedule</div>
+  <div class="flex gap-1 flex-wrap">
+    {% set day_labels = ['M','T','W','T','F','S','S'] %}
+    {% for i in range(7) %}
+    {% set is_work = schedule.get(i, 1 if i < 6 else 0) %}
+    <div class="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold
+                {% if is_work %}text-white{% else %}text-gray-400 bg-gray-100{% endif %}"
+         style="{% if is_work %}background:linear-gradient(135deg,#9d174d,#be185d);{% endif %}">
+      {{ day_labels[i] }}
+    </div>
+    {% endfor %}
+  </div>
+  <a href="{{ url_for('admin_staff_schedule') }}" class="text-xs text-gray-400 mt-2 block hover:text-rose-600">
+    Edit schedule →
+  </a>
+</div>
+{% endif %}
+
+<!-- Commission period filter -->
+<form method="get" class="bg-white rounded-2xl p-3 mb-4 card-shadow flex gap-2 items-end flex-wrap"
+      style="border:1px solid #fde68a;">
+  <div>
+    <label class="text-xs text-gray-500 font-medium">From</label>
+    <input type="date" name="date_from" value="{{ date_from }}"
+           class="border border-gray-200 rounded-lg px-2 py-2 text-sm mt-0.5 block"/>
+  </div>
+  <div>
+    <label class="text-xs text-gray-500 font-medium">To</label>
+    <input type="date" name="date_to" value="{{ date_to }}"
+           class="border border-gray-200 rounded-lg px-2 py-2 text-sm mt-0.5 block"/>
+  </div>
+  <button type="submit" class="btn-gold px-3 py-2 rounded-lg text-sm font-semibold">Apply</button>
+</form>
+
+<!-- Summary cards -->
+<div class="grid grid-cols-2 gap-3 mb-4">
+  <div class="stat-card text-center" style="border-color:#6ee7b7;">
+    <div class="text-xl font-bold font-display" style="color:#065f46;">₹{{ '%.0f'|format(total_commission) }}</div>
+    <div class="text-xs text-gray-500 mt-0.5">Commission Earned</div>
+  </div>
+  <div class="stat-card text-center">
+    <div class="text-xl font-bold font-display" style="color:#9d174d;">₹{{ '%.0f'|format(total_revenue) }}</div>
+    <div class="text-xs text-gray-500 mt-0.5">Revenue Generated</div>
+  </div>
+</div>
+
+<!-- Invoices table -->
+{% if invoices %}
+<h2 class="font-display text-base font-bold mb-3" style="color:#9d174d;">
+  <i class="fa-solid fa-file-invoice-dollar mr-2 text-sm"></i>Assigned Invoices ({{ invoices|length }})
+</h2>
+<div class="space-y-2 mb-5">
+  {% for inv in invoices %}
+  <a href="{{ url_for('admin_invoice_detail', inv_id=inv.id) }}"
+     class="bg-white rounded-2xl p-3 card-shadow flex items-center gap-3 block" style="border:1px solid #d1fae5;">
+    <div class="flex-1 min-w-0">
+      <div class="font-semibold text-sm text-gray-800 truncate">{{ inv.customer_name or 'Walk-in' }}</div>
+      <div class="text-xs text-gray-400">{{ inv.created_at[:10] }} · ₹{{ '%.0f'|format(inv.total) }}</div>
+    </div>
+    <div class="text-right flex-shrink-0">
+      <div class="text-sm font-bold" style="color:#065f46;">₹{{ '%.0f'|format(inv.commission_earned) }}</div>
+      <div class="text-xs text-gray-400">commission</div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-2xl p-6 text-center card-shadow mb-4" style="border:1px solid #fde68a;">
+  <div class="text-2xl mb-2">📋</div>
+  <div class="text-sm text-gray-500">No invoices assigned in this period</div>
+</div>
+{% endif %}
+
+<!-- Appointments -->
+{% if appointments %}
+<h2 class="font-display text-base font-bold mb-3" style="color:#9d174d;">
+  <i class="fa-solid fa-calendar-check mr-2 text-sm"></i>Appointments ({{ appointments|length }})
+</h2>
+<div class="space-y-2">
+  {% for a in appointments %}
+  <div class="bg-white rounded-2xl p-3 card-shadow" style="border:1px solid #fde68a;">
+    <div class="font-semibold text-sm text-gray-800">{{ a['name'] }}</div>
+    <div class="text-xs text-pink-600 mt-0.5">{{ a['service'] }}</div>
+    <div class="flex gap-2 mt-1">
+      <span class="badge badge-rose" style="font-size:10px;">{{ a['date'] }}</span>
+      <span class="badge badge-gold" style="font-size:10px;">{{ a['time'] }}</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Edit Modal -->
+<div id="edit-modal" class="hidden fixed inset-0 z-50 flex items-end justify-center">
+  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="document.getElementById('edit-modal').classList.add('hidden')"></div>
+  <div class="relative bg-white rounded-t-3xl w-full max-w-lg p-5 pb-8">
+    <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+    <h2 class="font-display font-bold text-lg mb-4" style="color:#9d174d;">Edit {{ member.name }}</h2>
+    <form method="post" action="{{ url_for('admin_staff_edit', staff_id=member.id) }}" class="space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div class="col-span-2">
+          <label class="text-xs font-semibold text-gray-600">Name *</label>
+          <input name="name" value="{{ member.name }}" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Phone</label>
+          <input name="phone" value="{{ member.phone or '' }}" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Role</label>
+          <input name="role" value="{{ member.role }}" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+        </div>
+        <div class="col-span-2">
+          <label class="text-xs font-semibold text-gray-600">Commission %</label>
+          <input type="number" name="commission_pct" min="0" max="100" step="0.1"
+                 value="{{ member.commission_pct }}"
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+        </div>
+      </div>
+      <button type="submit" class="btn-gold w-full py-3 rounded-xl font-semibold">Save Changes</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

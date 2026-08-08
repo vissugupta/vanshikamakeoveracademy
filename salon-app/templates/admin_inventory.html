@@ -1,0 +1,255 @@
+{% extends "admin_base.html" %}
+{% block title %}Inventory — VMA ERP{% endblock %}
+{% block page_title %}Inventory{% endblock %}
+
+{% block content %}
+
+<!-- Low stock alert -->
+{% if low_stock_items %}
+<div class="bg-red-50 border border-red-200 rounded-2xl p-3 mb-4 flex items-start gap-3">
+  <i class="fa-solid fa-triangle-exclamation text-red-500 mt-0.5"></i>
+  <div>
+    <div class="font-semibold text-red-700 text-sm mb-1">{{ low_stock_items|length }} item{{ 's' if low_stock_items|length != 1 else '' }} running low</div>
+    <div class="flex flex-wrap gap-1">
+      {% for p in low_stock_items %}
+      <span class="badge badge-red" style="font-size:10px;">{{ p.name }} ({{ p.stock_qty }} left)</span>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Add product button -->
+<div class="flex items-center gap-2 mb-4">
+  <button onclick="document.getElementById('add-modal').classList.remove('hidden')"
+          class="btn-rose px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2">
+    <i class="fa-solid fa-plus"></i> Add Product
+  </button>
+</div>
+
+<!-- Product list -->
+{% if products %}
+<div class="space-y-2">
+  {% for p in products %}
+  <div class="bg-white rounded-2xl p-3 card-shadow" style="border:1px solid {% if p.stock_qty <= p.alert_threshold %}#fca5a5{% else %}#fde68a{% endif %};">
+    <div class="flex items-start gap-3">
+      <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center"
+           style="background:{% if p.stock_qty <= p.alert_threshold %}#fee2e2{% else %}linear-gradient(135deg,#fce7f3,#fde68a){% endif %};">
+        <i class="fa-solid fa-box text-sm" style="color:{% if p.stock_qty <= p.alert_threshold %}#991b1b{% else %}#b45309{% endif %};"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-semibold text-sm text-gray-800">{{ p.name }}</span>
+          {% if p.category %}
+          <span class="badge badge-gray" style="font-size:10px;">{{ p.category }}</span>
+          {% endif %}
+          {% if p.stock_qty <= p.alert_threshold %}
+          <span class="badge badge-red" style="font-size:10px;">Low Stock</span>
+          {% endif %}
+        </div>
+        <div class="flex gap-3 mt-1 flex-wrap">
+          <span class="text-xs text-gray-500">Cost: ₹{{ '%.0f'|format(p.cost_price) }}</span>
+          <span class="text-xs font-semibold" style="color:#065f46;">Sale: ₹{{ '%.0f'|format(p.sale_price) }}</span>
+          <span class="text-xs text-gray-500">Unit: {{ p.unit }}</span>
+        </div>
+      </div>
+      <div class="text-right flex-shrink-0">
+        <div class="text-xl font-bold {% if p.stock_qty <= p.alert_threshold %}text-red-600{% else %}text-gray-800{% endif %}">
+          {{ p.stock_qty }}
+        </div>
+        <div class="text-xs text-gray-400">in stock</div>
+      </div>
+    </div>
+    <!-- Actions -->
+    <div class="flex gap-2 mt-3 pt-3 border-t border-gray-100">
+      <button onclick="openAdjust({{ p.id }}, '{{ p.name | e }}', {{ p.stock_qty }})"
+              class="flex-1 text-xs font-semibold py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+        <i class="fa-solid fa-sliders mr-1"></i>Adjust Stock
+      </button>
+      <button onclick="openEdit({{ p.id }}, '{{ p.name | e }}', '{{ p.category or '' }}', '{{ p.unit }}', {{ p.cost_price }}, {{ p.sale_price }}, {{ p.stock_qty }}, {{ p.alert_threshold }})"
+              class="flex-1 text-xs font-semibold py-1.5 rounded-lg border border-amber-200 text-amber-700 hover:bg-amber-50">
+        <i class="fa-solid fa-pen mr-1"></i>Edit
+      </button>
+      <form method="post" action="{{ url_for('admin_inventory_delete', prod_id=p.id) }}"
+            onsubmit="return confirm('Delete {{ p.name | e }}?')">
+        <button type="submit"
+                class="text-xs font-semibold py-1.5 px-3 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-2xl p-8 card-shadow text-center" style="border:1px solid #fde68a;">
+  <div class="text-4xl mb-3">📦</div>
+  <div class="font-display font-bold text-gray-700 mb-1">No products yet</div>
+  <div class="text-sm text-gray-400 mb-4">Add products to track stock and add to invoices</div>
+</div>
+{% endif %}
+
+<!-- Add Product Modal -->
+<div id="add-modal" class="hidden fixed inset-0 z-50 flex items-end justify-center">
+  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="document.getElementById('add-modal').classList.add('hidden')"></div>
+  <div class="relative bg-white rounded-t-3xl w-full max-w-lg p-5 pb-8 max-h-[85vh] overflow-y-auto">
+    <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+    <h2 class="font-display font-bold text-lg mb-4" style="color:#9d174d;">Add Product</h2>
+    <form method="post" action="{{ url_for('admin_inventory_add') }}" class="space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div class="col-span-2">
+          <label class="text-xs font-semibold text-gray-600">Product Name *</label>
+          <input name="name" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Category</label>
+          <input name="category" placeholder="e.g. Hair Care" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Unit</label>
+          <select name="unit" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1">
+            <option value="piece">Piece</option>
+            <option value="ml">ml</option>
+            <option value="gm">gm</option>
+            <option value="bottle">Bottle</option>
+            <option value="pack">Pack</option>
+            <option value="set">Set</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Cost Price (₹)</label>
+          <input type="number" name="cost_price" min="0" step="0.01" value="0"
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Sale Price (₹)</label>
+          <input type="number" name="sale_price" min="0" step="0.01" value="0"
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Opening Stock</label>
+          <input type="number" name="stock_qty" min="0" value="0"
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Low-Stock Alert</label>
+          <input type="number" name="alert_threshold" min="0" value="5"
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+        </div>
+      </div>
+      <button type="submit" class="btn-rose w-full py-3 rounded-xl font-semibold mt-2">
+        <i class="fa-solid fa-plus mr-1"></i> Add Product
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Product Modal -->
+<div id="edit-modal" class="hidden fixed inset-0 z-50 flex items-end justify-center">
+  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="document.getElementById('edit-modal').classList.add('hidden')"></div>
+  <div class="relative bg-white rounded-t-3xl w-full max-w-lg p-5 pb-8 max-h-[85vh] overflow-y-auto">
+    <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+    <h2 class="font-display font-bold text-lg mb-4" style="color:#9d174d;">Edit Product</h2>
+    <form id="edit-form" method="post" class="space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div class="col-span-2">
+          <label class="text-xs font-semibold text-gray-600">Product Name *</label>
+          <input id="edit-name" name="name" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Category</label>
+          <input id="edit-category" name="category" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Unit</label>
+          <select id="edit-unit" name="unit" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1">
+            <option value="piece">Piece</option>
+            <option value="ml">ml</option>
+            <option value="gm">gm</option>
+            <option value="bottle">Bottle</option>
+            <option value="pack">Pack</option>
+            <option value="set">Set</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Cost Price (₹)</label>
+          <input type="number" id="edit-cost" name="cost_price" min="0" step="0.01"
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Sale Price (₹)</label>
+          <input type="number" id="edit-sale" name="sale_price" min="0" step="0.01"
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Low-Stock Alert</label>
+          <input type="number" id="edit-threshold" name="alert_threshold" min="0"
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+        </div>
+      </div>
+      <button type="submit" class="btn-gold w-full py-3 rounded-xl font-semibold mt-2">
+        <i class="fa-solid fa-floppy-disk mr-1"></i> Save Changes
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Adjust Stock Modal -->
+<div id="adjust-modal" class="hidden fixed inset-0 z-50 flex items-end justify-center">
+  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="document.getElementById('adjust-modal').classList.add('hidden')"></div>
+  <div class="relative bg-white rounded-t-3xl w-full max-w-lg p-5 pb-8">
+    <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+    <h2 class="font-display font-bold text-lg mb-1" style="color:#9d174d;">Adjust Stock</h2>
+    <p id="adjust-product-name" class="text-sm text-gray-500 mb-4"></p>
+    <form id="adjust-form" method="post" class="space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Type</label>
+          <select name="adjust_type" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1">
+            <option value="add">Add Stock</option>
+            <option value="deduct">Deduct Stock</option>
+            <option value="set">Set to exact</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Quantity</label>
+          <input type="number" name="qty" min="0" required
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+        </div>
+        <div class="col-span-2">
+          <label class="text-xs font-semibold text-gray-600">Reason / Note</label>
+          <input name="reason" placeholder="e.g. Stock received from supplier"
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+        </div>
+      </div>
+      <div class="p-3 bg-amber-50 rounded-xl text-xs text-amber-700">
+        Current stock: <strong id="adjust-current-stock">0</strong> units
+      </div>
+      <button type="submit" class="btn-gold w-full py-3 rounded-xl font-semibold">
+        <i class="fa-solid fa-sliders mr-1"></i> Apply Adjustment
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openEdit(id, name, category, unit, cost, sale, stock, threshold) {
+  document.getElementById('edit-name').value = name;
+  document.getElementById('edit-category').value = category;
+  document.getElementById('edit-unit').value = unit;
+  document.getElementById('edit-cost').value = cost;
+  document.getElementById('edit-sale').value = sale;
+  document.getElementById('edit-threshold').value = threshold;
+  document.getElementById('edit-form').action = '/admin/inventory/' + id + '/edit';
+  document.getElementById('edit-modal').classList.remove('hidden');
+}
+function openAdjust(id, name, currentStock) {
+  document.getElementById('adjust-product-name').textContent = name;
+  document.getElementById('adjust-current-stock').textContent = currentStock;
+  document.getElementById('adjust-form').action = '/admin/inventory/' + id + '/adjust';
+  document.getElementById('adjust-modal').classList.remove('hidden');
+}
+</script>
+{% endblock %}

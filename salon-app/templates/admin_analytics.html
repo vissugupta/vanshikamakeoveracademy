@@ -1,0 +1,265 @@
+{% extends "admin_base.html" %}
+{% block title %}Analytics — VMA ERP{% endblock %}
+{% block page_title %}Analytics{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  .tab-btn { padding:6px 14px; border-radius:10px; font-size:12px; font-weight:600;
+             color:#9ca3af; background:transparent; border:none; cursor:pointer; transition:.15s; }
+  .tab-btn.active { background:linear-gradient(135deg,#9d174d,#be185d); color:#fff; }
+  .kpi-card { background:#fff; border-radius:18px; padding:14px 12px; text-align:center;
+              box-shadow:0 1px 6px rgba(0,0,0,.06); border:1px solid #fde68a; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Date range filter -->
+<form method="get" class="bg-white rounded-2xl p-3 mb-4 card-shadow flex gap-2 items-end flex-wrap"
+      style="border:1px solid #fde68a;">
+  <div class="flex-1">
+    <label class="text-xs text-gray-500 font-medium">From</label>
+    <input type="date" name="date_from" value="{{ date_from }}"
+           class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs mt-0.5 block w-full"/>
+  </div>
+  <div class="flex-1">
+    <label class="text-xs text-gray-500 font-medium">To</label>
+    <input type="date" name="date_to" value="{{ date_to }}"
+           class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs mt-0.5 block w-full"/>
+  </div>
+  <button type="submit" class="btn-gold px-3 py-1.5 rounded-lg text-xs font-semibold">Apply</button>
+  <a href="{{ url_for('admin_analytics_export', date_from=date_from, date_to=date_to) }}"
+     class="btn-rose px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1">
+    <i class="fa-solid fa-download"></i> CSV
+  </a>
+</form>
+
+<!-- KPI cards -->
+<div class="grid grid-cols-2 gap-2 mb-4">
+  <div class="kpi-card" style="border-color:#6ee7b7;">
+    <div class="text-lg font-bold font-display" style="color:#065f46;">₹{{ '%.0f'|format(summary.total_rev) }}</div>
+    <div class="text-xs text-gray-500 mt-0.5">Total Revenue</div>
+  </div>
+  <div class="kpi-card">
+    <div class="text-lg font-bold font-display" style="color:#9d174d;">{{ summary.invoice_cnt }}</div>
+    <div class="text-xs text-gray-500 mt-0.5">Invoices</div>
+  </div>
+  <div class="kpi-card">
+    <div class="text-lg font-bold font-display" style="color:#b45309;">₹{{ '%.0f'|format(summary.avg_order) }}</div>
+    <div class="text-xs text-gray-500 mt-0.5">Avg Order Value</div>
+  </div>
+  <div class="kpi-card" style="border-color:{% if retention_rate >= 50 %}#6ee7b7{% else %}#fde68a{% endif %};">
+    <div class="text-lg font-bold font-display" style="color:{% if retention_rate >= 50 %}#065f46{% else %}#b45309{% endif %};">
+      {{ retention_rate }}%
+    </div>
+    <div class="text-xs text-gray-500 mt-0.5">Retention Rate</div>
+  </div>
+</div>
+
+<!-- Revenue chart -->
+<div class="bg-white rounded-2xl p-4 card-shadow mb-4" style="border:1px solid #fde68a;">
+  <div class="flex items-center gap-2 mb-3">
+    <h2 class="font-display text-sm font-bold flex-1" style="color:#9d174d;">Revenue Trend</h2>
+    <div class="flex gap-1">
+      <button class="tab-btn active" onclick="switchChart('daily', this)">14D</button>
+      <button class="tab-btn" onclick="switchChart('monthly', this)">12M</button>
+    </div>
+  </div>
+  <canvas id="revenue-chart" height="180"></canvas>
+</div>
+
+<!-- Top services -->
+<div class="bg-white rounded-2xl p-4 card-shadow mb-4" style="border:1px solid #fde68a;">
+  <h2 class="font-display text-sm font-bold mb-3" style="color:#9d174d;">
+    <i class="fa-solid fa-ranking-star mr-2"></i>Top Services by Revenue
+  </h2>
+  {% if top_svcs_rev %}
+  {% set max_rev = top_svcs_rev[0].rev if top_svcs_rev else 1 %}
+  <div class="space-y-2">
+    {% for s in top_svcs_rev %}
+    <div>
+      <div class="flex justify-between text-xs mb-0.5">
+        <span class="font-semibold text-gray-700 truncate" style="max-width:70%;">{{ s.item_name }}</span>
+        <span class="text-gray-500">₹{{ '%.0f'|format(s.rev) }}</span>
+      </div>
+      <div class="h-1.5 rounded-full bg-gray-100">
+        <div class="h-1.5 rounded-full" style="width:{{ (s.rev / max_rev * 100)|int }}%;
+             background:linear-gradient(90deg,#9d174d,#be185d);"></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-xs text-gray-400 text-center py-4">No service data for this period</div>
+  {% endif %}
+</div>
+
+<!-- Top services by bookings -->
+<div class="bg-white rounded-2xl p-4 card-shadow mb-4" style="border:1px solid #fde68a;">
+  <h2 class="font-display text-sm font-bold mb-3" style="color:#9d174d;">
+    <i class="fa-solid fa-scissors mr-2"></i>Most Booked Services
+  </h2>
+  {% if top_svcs_cnt %}
+  {% set max_cnt = top_svcs_cnt[0].cnt if top_svcs_cnt else 1 %}
+  <div class="space-y-2">
+    {% for s in top_svcs_cnt %}
+    <div class="flex items-center gap-2">
+      <div class="flex-1 min-w-0">
+        <div class="text-xs font-semibold text-gray-700 truncate">{{ s.item_name }}</div>
+      </div>
+      <div class="h-1.5 rounded-full bg-gray-100 flex-1">
+        <div class="h-1.5 rounded-full" style="width:{{ (s.cnt / max_cnt * 100)|int }}%;
+             background:linear-gradient(90deg,#b45309,#d97706);"></div>
+      </div>
+      <div class="text-xs text-gray-500 flex-shrink-0 w-8 text-right">{{ s.cnt }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-xs text-gray-400 text-center py-4">No data for this period</div>
+  {% endif %}
+</div>
+
+<!-- Staff performance -->
+{% if staff_perf %}
+<div class="bg-white rounded-2xl p-4 card-shadow mb-4" style="border:1px solid #fde68a;">
+  <h2 class="font-display text-sm font-bold mb-3" style="color:#9d174d;">
+    <i class="fa-solid fa-user-tie mr-2"></i>Staff Performance
+  </h2>
+  <div class="space-y-3">
+    {% for s in staff_perf %}
+    <div class="flex items-center gap-2 pb-3 border-b border-gray-100 last:border-0">
+      <div class="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
+           style="background:linear-gradient(135deg,#9d174d,#be185d);">
+        {{ s.name[0].upper() }}
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="text-xs font-semibold text-gray-800 truncate">{{ s.name }}</div>
+        <div class="text-xs text-gray-400">{{ s.role }} · {{ s.invoice_count }} invoices</div>
+      </div>
+      <div class="text-right flex-shrink-0">
+        <div class="text-xs font-bold" style="color:#065f46;">₹{{ '%.0f'|format(s.revenue) }}</div>
+        <div class="text-xs text-amber-600">₹{{ '%.0f'|format(s.commission) }} comm.</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Branch comparison -->
+{% if branches_rev|length > 1 %}
+<div class="bg-white rounded-2xl p-4 card-shadow mb-4" style="border:1px solid #fde68a;">
+  <h2 class="font-display text-sm font-bold mb-3" style="color:#9d174d;">
+    <i class="fa-solid fa-code-branch mr-2"></i>Branch Comparison
+  </h2>
+  {% set max_brev = branches_rev[0].rev if branches_rev else 1 %}
+  <div class="space-y-2">
+    {% for b in branches_rev %}
+    <div>
+      <div class="flex justify-between text-xs mb-0.5">
+        <span class="font-semibold text-gray-700 truncate">{{ b.name }}</span>
+        <span class="text-gray-500">₹{{ '%.0f'|format(b.rev) }} · {{ b.cnt }} invoices</span>
+      </div>
+      <div class="h-1.5 rounded-full bg-gray-100">
+        <div class="h-1.5 rounded-full" style="width:{{ (b.rev / [max_brev,1]|max * 100)|int }}%;
+             background:linear-gradient(90deg,#065f46,#059669);"></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Top customers -->
+{% if top_customers %}
+<div class="bg-white rounded-2xl p-4 card-shadow mb-4" style="border:1px solid #fde68a;">
+  <h2 class="font-display text-sm font-bold mb-3" style="color:#9d174d;">
+    <i class="fa-solid fa-crown mr-2"></i>Top Customers by Spend
+  </h2>
+  <div class="space-y-2">
+    {% for c in top_customers %}
+    {% if c.total_spend > 0 %}
+    <div class="flex items-center gap-2.5">
+      <div class="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
+           style="background:linear-gradient(135deg,#9d174d,#be185d);">
+        {{ loop.index }}
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="text-xs font-semibold text-gray-800 truncate">{{ c.name }}</div>
+        <div class="text-xs text-gray-400">{{ c.visit_count }} visit{{ 's' if c.visit_count != 1 else '' }}</div>
+      </div>
+      <div class="text-xs font-bold flex-shrink-0" style="color:#065f46;">₹{{ '%.0f'|format(c.total_spend) }}</div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const DAILY_LABELS   = {{ daily_labels | safe }};
+const DAILY_REV      = {{ daily_rev | safe }};
+const MONTHLY_LABELS = {{ monthly_labels | safe }};
+const MONTHLY_REV    = {{ monthly_rev | safe }};
+
+let chart;
+
+function buildChart(labels, data, label) {
+  const ctx = document.getElementById('revenue-chart');
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label,
+        data,
+        backgroundColor: 'rgba(157,23,77,0.7)',
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => '₹' + ctx.parsed.y.toLocaleString('en-IN')
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: val => '₹' + (val >= 1000 ? (val/1000).toFixed(1)+'k' : val),
+            font: { size: 10 }
+          },
+          grid: { color: '#f3f4f6' }
+        },
+        x: { ticks: { font: { size: 9 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+function switchChart(type, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (type === 'daily') {
+    buildChart(DAILY_LABELS, DAILY_REV, 'Daily Revenue');
+  } else {
+    buildChart(MONTHLY_LABELS, MONTHLY_REV, 'Monthly Revenue');
+  }
+}
+
+// Init
+buildChart(DAILY_LABELS, DAILY_REV, 'Daily Revenue');
+</script>
+{% endblock %}

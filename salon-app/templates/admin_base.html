@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <meta name="theme-color" content="#0a0a0a"/>
+  <title>{% block title %}ERP — Vanshika Makeover Academy{% endblock %}</title>
+  <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='brand-logo.jpeg') }}"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            gold:  { DEFAULT:'#c9a96e', light:'#f0e6cc', mid:'#d4af37', dark:'#a07840' },
+            ink:   { DEFAULT:'#0a0a0a', 2:'#111111', 3:'#1a1a1a', 4:'#222222', 5:'#2e2e2e' },
+            cream: { DEFAULT:'#f5f0e8', 2:'#e8dcc8', 3:'#c8b89a' },
+          },
+          fontFamily: {
+            display: ['"Playfair Display"','serif'],
+            body:    ['"Inter"','sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    :root {
+      --ink:   #0a0a0a; --ink2:  #111111; --ink3:  #161616;
+      --ink4:  #1e1e1e; --ink5:  #2a2a2a; --ink6:  #333333;
+      --gold:  #c9a96e; --gold2: #d4af37; --gold3: #e8c97a;
+      --cream: #f5f0e8; --cream2:#e8dcc8; --cream3:#b8a888;
+      --muted: #5e5248;
+    }
+    * { box-sizing:border-box; }
+    body { font-family:'Inter',sans-serif; background:var(--ink); color:var(--cream); min-height:100vh; }
+    .font-display { font-family:'Playfair Display',serif; }
+
+    .gold-text {
+      background:linear-gradient(90deg,#a07840,#d4af37,#f0d880,#d4af37,#a07840);
+      background-size:200% auto;
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      background-clip:text; animation:goldShimmer 5s linear infinite;
+    }
+    @keyframes goldShimmer { 0%{background-position:0% center} 100%{background-position:200% center} }
+
+    /* Buttons */
+    .btn-gold { background:linear-gradient(135deg,#a07840,#c9a96e,#d4af37); color:#0a0a0a; font-weight:700;
+                transition:filter .2s,transform .15s; box-shadow:0 4px 16px rgba(201,169,110,.3); }
+    .btn-gold:hover  { filter:brightness(1.1); }
+    .btn-gold:active { filter:brightness(.9); transform:scale(.98); }
+    .btn-rose { background:linear-gradient(135deg,#a07840,#c9a96e,#d4af37); color:#0a0a0a; font-weight:700;
+                transition:filter .2s,transform .15s; box-shadow:0 4px 16px rgba(201,169,110,.25); }
+    .btn-rose:hover  { filter:brightness(1.1); }
+    .btn-rose:active { filter:brightness(.9); transform:scale(.98); }
+    .btn-danger { background:linear-gradient(135deg,#7f1d1d,#991b1b); color:#fca5a5; }
+
+    /* Cards */
+    .stat-card {
+      background:var(--ink4); border:1px solid rgba(201,169,110,.18);
+      border-radius:16px; padding:16px 14px;
+      box-shadow:0 4px 24px rgba(0,0,0,.5);
+    }
+    .card-shadow { box-shadow:0 4px 32px rgba(0,0,0,.6),0 0 0 1px rgba(201,169,110,.12); }
+
+    /* Inputs */
+    select,input,textarea {
+      font-size:16px !important;
+      background:var(--ink5) !important;
+      color:var(--cream) !important;
+      border-color:var(--ink6) !important;
+    }
+    select::placeholder,input::placeholder,textarea::placeholder { color:var(--muted) !important; }
+    select option { background:var(--ink4); color:var(--cream); }
+
+    /* Tables */
+    .table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    table { border-collapse:collapse; width:100%; }
+    th { background:var(--ink4); color:var(--gold2); font-size:11px; letter-spacing:.06em;
+         text-transform:uppercase; font-weight:700; padding:10px 12px;
+         border-bottom:1px solid rgba(201,169,110,.25); }
+    td { padding:11px 12px; font-size:13px; color:var(--cream2);
+         border-bottom:1px solid rgba(255,255,255,.05); }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:rgba(201,169,110,.04); }
+
+    /* Badges */
+    .badge { display:inline-flex; align-items:center; border-radius:20px; padding:3px 10px; font-size:11px; font-weight:600; }
+    .badge-gold  { background:rgba(201,169,110,.15); color:var(--gold2); border:1px solid rgba(201,169,110,.35); }
+    .badge-rose  { background:rgba(201,169,110,.1);  color:var(--gold);  border:1px solid rgba(201,169,110,.25); }
+    .badge-green { background:#0d1f14; color:#6ee7b7; border:1px solid #2d5a3d; }
+    .badge-red   { background:#1f0d0d; color:#fca5a5; border:1px solid #5a2d2d; }
+    .badge-gray  { background:var(--ink5); color:var(--cream3); border:1px solid var(--ink6); }
+
+    /* Sidebar */
+    #erp-sidebar { transform:translateX(-100%); transition:transform .28s cubic-bezier(.4,0,.2,1); }
+    #erp-sidebar.open { transform:translateX(0); }
+    #sidebar-overlay { display:none; }
+    #sidebar-overlay.open { display:block; }
+
+    .nav-item {
+      display:flex; align-items:center; gap:12px;
+      padding:11px 16px; border-radius:12px; margin:2px 0;
+      color:var(--cream3); font-size:14px; font-weight:500;
+      text-decoration:none; transition:background .18s,color .18s;
+    }
+    .nav-item:hover { background:rgba(201,169,110,.08); color:var(--cream); }
+    .nav-item.active {
+      background:linear-gradient(135deg,rgba(201,169,110,.15),rgba(212,175,55,.1));
+      color:var(--gold2);
+      box-shadow:inset 3px 0 0 var(--gold2);
+    }
+    .nav-item.active i { color:var(--gold2); }
+    .nav-item i { width:18px; text-align:center; font-size:15px; color:var(--muted); }
+    .nav-item.stub { opacity:.4; cursor:not-allowed; }
+    .nav-section { color:var(--muted); font-size:10px; letter-spacing:.15em;
+                   text-transform:uppercase; font-weight:700; padding:14px 16px 4px; }
+
+    /* Gold accent lines */
+    .gold-line-top { height:2px; background:linear-gradient(90deg,#a07840,#d4af37,#f0d880,#d4af37,#a07840); }
+    .gold-line { height:1px; background:linear-gradient(90deg,transparent,var(--gold),transparent); }
+
+    /* Flash */
+    .flash-success { background:#0d1f14; border:1px solid #2d5a3d; color:#6ee7b7; }
+    .flash-error   { background:#1f0d0d; border:1px solid #5a2d2d; color:#fca5a5; }
+
+    /* Ornament line */
+    .ornament-line {
+      display:flex; align-items:center; gap:10px;
+      color:var(--gold); font-size:11px; letter-spacing:.15em;
+      text-transform:uppercase; font-weight:600;
+    }
+    .ornament-line::before,.ornament-line::after {
+      content:''; flex:1; height:1px;
+      background:linear-gradient(90deg,transparent,var(--gold),transparent);
+    }
+
+    /* Star ratings */
+    .star-filled { color:#d4af37; }
+    .star-empty  { color:#2a2a2a; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+
+<body style="background:#0a0a0a; min-height:100vh;">
+
+<!-- Sidebar overlay -->
+<div id="sidebar-overlay"
+     class="fixed inset-0 bg-black/70 z-40 backdrop-blur-sm"
+     onclick="closeSidebar()"></div>
+
+<!-- Sidebar -->
+<aside id="erp-sidebar"
+       class="fixed top-0 left-0 bottom-0 z-50 w-72 flex flex-col"
+       style="background:#0d0d0d; border-right:1px solid rgba(201,169,110,.12);">
+
+  <!-- Brand -->
+  <div class="flex-shrink-0" style="background:rgba(0,0,0,.4); padding:20px 16px 16px; border-bottom:1px solid rgba(201,169,110,.1);">
+    <div class="flex items-center gap-3 mb-3">
+      <img src="{{ url_for('static', filename='brand-logo.jpeg') }}"
+           alt="Vanshika Makeover Academy logo"
+           class="w-11 h-11 rounded-xl object-cover flex-shrink-0"
+           style="border:1.5px solid rgba(201,169,110,.5); box-shadow:0 0 12px rgba(212,175,55,.2);" />
+      <div>
+        <div class="font-display font-bold text-base leading-tight" style="color:#f5f0e8;">Vanshika</div>
+        <div class="text-xs" style="color:#c9a96e;">Makeover Academy · ERP</div>
+      </div>
+    </div>
+    <!-- User pill -->
+    <div class="mt-2 flex items-center gap-2 px-1">
+      <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
+           style="background:linear-gradient(135deg,#a07840,#d4af37); color:#0a0a0a;">
+        {{ (admin_user_name[:1] or '?') | upper }}
+      </div>
+      <div class="min-w-0">
+        <div class="text-xs font-semibold truncate" style="color:#f5f0e8;">{{ admin_user_name or 'Admin' }}</div>
+        <div class="text-xs capitalize" style="color:#c9a96e;">{{ admin_user_role or '' }}</div>
+      </div>
+    </div>
+
+    <!-- Branch selector -->
+    {% if branches|length > 1 %}
+    <div class="mt-2">
+      <div class="text-xs mb-1" style="color:#6e6058;">Active Branch</div>
+      <div class="flex flex-wrap gap-1">
+        {% for b in branches %}
+        <a href="{{ url_for('switch_branch', branch_id=b.id) }}"
+           class="text-xs px-2.5 py-1 rounded-lg font-medium transition"
+           style="{% if b.id == current_branch_id %}background:linear-gradient(135deg,#a07840,#d4af37);color:#0a0a0a;{% else %}color:#c9a96e;border:1px solid rgba(201,169,110,.2);{% endif %}">
+          {{ b.name | truncate(18, True, '…') }}
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <div class="text-xs mt-1" style="color:#6e6058;">
+      <i class="fa-solid fa-location-dot mr-1" style="color:#c9a96e;"></i>
+      {{ current_branch.name if current_branch else 'Main Branch' }}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Nav -->
+  <nav class="flex-1 overflow-y-auto py-2 px-3">
+    <div class="nav-section">Main</div>
+    <a href="{{ url_for('admin_dashboard') }}" class="nav-item {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
+      <i class="fa-solid fa-gauge"></i> Dashboard
+    </a>
+    <a href="{{ url_for('admin_customers') }}" class="nav-item {% if 'customer' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fa-solid fa-users"></i> Customers
+      <span class="ml-auto badge badge-gold" style="font-size:10px;">CRM</span>
+    </a>
+    <a href="{{ url_for('admin_appointments') }}" class="nav-item {% if request.endpoint == 'admin_appointments' %}active{% endif %}">
+      <i class="fa-solid fa-calendar-check"></i> Appointments
+    </a>
+    <a href="{{ url_for('admin_feedback') }}" class="nav-item {% if 'feedback' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fa-solid fa-star"></i> Reviews
+    </a>
+
+    {% if admin_user_role in ('owner', 'manager') %}
+    <a href="{{ url_for('admin_services') }}" class="nav-item {% if 'service' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fa-solid fa-wand-magic-sparkles"></i> Services
+    </a>
+    <a href="{{ url_for('admin_branches') }}" class="nav-item {% if 'branch' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fa-solid fa-store"></i> Branches
+    </a>
+    {% endif %}
+
+    <div class="nav-section" style="margin-top:8px;">Billing &amp; Stock</div>
+    <a href="{{ url_for('admin_billing') }}" class="nav-item {% if 'billing' in (request.endpoint or '') or 'invoice' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fa-solid fa-file-invoice-dollar"></i> Billing
+    </a>
+    {% if admin_user_role in ('owner', 'manager') %}
+    <a href="{{ url_for('admin_inventory') }}" class="nav-item {% if 'inventory' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fa-solid fa-boxes-stacked"></i> Inventory
+      {% if low_stock_count > 0 %}
+      <span class="ml-auto badge badge-red" style="font-size:9px;">{{ low_stock_count }}</span>
+      {% endif %}
+    </a>
+    {% endif %}
+
+    {% if admin_user_role in ('owner', 'manager') %}
+    <div class="nav-section" style="margin-top:8px;">Team &amp; Members</div>
+    <a href="{{ url_for('admin_staff') }}" class="nav-item {% if 'staff' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fa-solid fa-user-tie"></i> Staff
+    </a>
+    <a href="{{ url_for('admin_memberships') }}" class="nav-item {% if 'membership' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fa-solid fa-gem"></i> Memberships
+    </a>
+
+    <div class="nav-section" style="margin-top:8px;">Growth</div>
+    <a href="{{ url_for('admin_marketing') }}" class="nav-item {% if 'marketing' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fa-brands fa-whatsapp"></i> Marketing
+    </a>
+    {% endif %}
+
+    {% if admin_user_role == 'owner' %}
+    <a href="{{ url_for('admin_analytics') }}" class="nav-item {% if 'analytics' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fa-solid fa-chart-line"></i> Analytics
+    </a>
+    <div class="nav-section" style="margin-top:8px;">Admin</div>
+    <a href="{{ url_for('admin_team') }}" class="nav-item {% if request.endpoint == 'admin_team' or 'team' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fa-solid fa-shield-halved"></i> Team Access
+    </a>
+    {% endif %}
+  </nav>
+
+  <!-- Footer -->
+  <div class="flex-shrink-0 p-3" style="border-top:1px solid rgba(201,169,110,.1);">
+    <a href="/" target="_blank" class="nav-item" style="margin:0 0 4px;">
+      <i class="fa-solid fa-globe"></i> View Website
+    </a>
+    <a href="{{ url_for('admin_logout') }}" class="nav-item" style="margin:0; color:#fca5a5;">
+      <i class="fa-solid fa-right-from-bracket"></i> Logout
+    </a>
+  </div>
+</aside>
+
+<!-- Top header -->
+<header class="sticky top-0 z-30 flex items-center gap-3 px-4 h-14"
+        style="background:#0d0d0d; border-bottom:1px solid rgba(201,169,110,.12); box-shadow:0 2px 24px rgba(0,0,0,.6);">
+  <div class="gold-line-top" style="position:absolute;top:0;left:0;right:0;"></div>
+  <button onclick="toggleSidebar()"
+          class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+          style="background:rgba(201,169,110,.08); border:1px solid rgba(201,169,110,.2);">
+    <i class="fa-solid fa-bars text-sm" style="color:#c9a96e;"></i>
+  </button>
+  <div class="flex-1 min-w-0">
+    <div class="font-display font-bold text-base leading-tight truncate" style="color:#f5f0e8;">
+      {% block page_title %}ERP Dashboard{% endblock %}
+    </div>
+    <div class="text-xs truncate" style="color:#c9a96e;">
+      {{ current_branch.name if current_branch else 'Vanshika Makeover Academy' }}
+    </div>
+  </div>
+  {% if low_stock_count > 0 %}
+  <div class="flex-shrink-0">
+    <span class="badge badge-red text-xs">
+      <i class="fa-solid fa-triangle-exclamation mr-1"></i>{{ low_stock_count }} low stock
+    </span>
+  </div>
+  {% endif %}
+</header>
+
+<!-- Flash messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="px-4 pt-3 space-y-2">
+      {% for category, message in messages %}
+        <div class="rounded-xl px-4 py-3 text-sm font-medium flex items-center gap-2
+          {% if category == 'success' %}flash-success{% else %}flash-error{% endif %}">
+          <i class="fa-solid {% if category == 'success' %}fa-circle-check{% else %}fa-circle-exclamation{% endif %} flex-shrink-0"></i>
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<!-- Main content -->
+<main class="px-4 py-4 pb-10">
+  {% block content %}{% endblock %}
+</main>
+
+<script>
+  function toggleSidebar() {
+    document.getElementById('erp-sidebar').classList.toggle('open');
+    document.getElementById('sidebar-overlay').classList.toggle('open');
+  }
+  function closeSidebar() {
+    document.getElementById('erp-sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.remove('open');
+  }
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

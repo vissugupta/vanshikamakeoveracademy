@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Thank You! — Vanshika Makeover Academy{% endblock %}
+
+{% block content %}
+<div class="pt-8 pb-8 text-center">
+
+  <!-- Icon with gold ring -->
+  <div class="relative inline-flex items-center justify-center mb-5">
+    <div class="w-28 h-28 rounded-full absolute"
+         style="background:linear-gradient(135deg,#fef3c7,#fce7f3); opacity:0.7;"></div>
+    <div class="w-24 h-24 rounded-full flex items-center justify-center relative z-10"
+         style="background:linear-gradient(135deg,#be185d,#db2777); box-shadow:0 0 0 6px rgba(190,24,93,0.12), 0 8px 24px rgba(190,24,93,0.3);">
+      {% if rating == 5 %}
+        <i class="fa-solid fa-face-laugh-beam text-white text-4xl"></i>
+      {% elif rating >= 4 %}
+        <i class="fa-solid fa-face-smile-beam text-white text-4xl"></i>
+      {% elif rating >= 3 %}
+        <i class="fa-solid fa-face-smile text-white text-4xl"></i>
+      {% else %}
+        <i class="fa-solid fa-face-meh text-white text-4xl"></i>
+      {% endif %}
+    </div>
+  </div>
+
+  <h1 class="font-display text-2xl font-bold mb-1" style="color:#831843;">
+    Thank You, {{ customer_name }}!
+  </h1>
+  <p class="text-sm mb-4" style="color:#be185d;">Your feedback means the world to us</p>
+
+  <!-- Stars display -->
+  <div class="flex justify-center gap-2 mb-7">
+    {% for i in range(1, 6) %}
+    <i class="fa-solid fa-star text-2xl {% if i <= rating %}star-filled{% else %}star-empty{% endif %}"></i>
+    {% endfor %}
+  </div>
+
+  <!-- Gold ornament divider -->
+  <div class="ornament-line mb-5 px-4" style="color:#b45309; font-size:10px;">
+    <i class="fa-solid fa-heart text-xs" style="color:#be185d;"></i>
+    From Vanshika Makeover Academy
+    <i class="fa-solid fa-heart text-xs" style="color:#be185d;"></i>
+  </div>
+
+  <!-- Message card -->
+  <div class="bg-white rounded-2xl p-6 card-shadow mb-4 relative overflow-hidden" style="border:1.5px solid #fde68a;">
+    <!-- Decorative gold corner -->
+    <div class="absolute -top-4 -right-4 w-16 h-16 rounded-full opacity-10"
+         style="background:radial-gradient(circle,#fbbf24,transparent);"></div>
+
+    {% if rating == 5 %}
+    <i class="fa-solid fa-crown text-3xl mb-3" style="color:#d97706;"></i>
+    <div class="font-display text-lg font-bold mb-2" style="color:#831843;">You made our day!</div>
+    <p class="text-gray-500 text-sm">We're so happy you had an amazing experience. Your support keeps us going — see you again soon!</p>
+    {% elif rating >= 3 %}
+    <i class="fa-solid fa-heart text-3xl mb-3" style="color:#be185d;"></i>
+    <div class="font-display text-lg font-bold mb-2" style="color:#831843;">Thank you for your honesty</div>
+    <p class="text-gray-500 text-sm">We're always working to make your experience better. Your feedback helps us grow — come back soon!</p>
+    {% else %}
+    <i class="fa-solid fa-hand-holding-heart text-3xl mb-3" style="color:#be185d;"></i>
+    <div class="font-display text-lg font-bold mb-2" style="color:#831843;">We hear you</div>
+    <p class="text-gray-500 text-sm">We're sorry we didn't fully meet your expectations. We'll use your feedback to improve and hope to serve you better next time.</p>
+    {% endif %}
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="flex flex-col gap-3">
+    <a href="/book" class="btn-rose py-4 rounded-2xl text-base font-bold shadow-lg flex items-center justify-center gap-2">
+      <i class="fa-solid fa-calendar-check"></i> Book Your Next Visit
+    </a>
+    <a href="/" class="py-4 rounded-2xl text-base font-semibold flex items-center justify-center gap-2"
+       style="background:#fff; border:1.5px solid #fde68a; color:#b45309;">
+      <i class="fa-solid fa-house"></i> Back to Home
+    </a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,218 @@
+{% extends "admin_base.html" %}
+{% block title %}Team Management — Vanshika Makeover Academy{% endblock %}
+{% block page_title %}Team Management{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="font-display text-xl font-bold text-rose-900">Admin Accounts</h2>
+      <p class="text-gray-500 text-sm mt-0.5">Manage who can log in to this dashboard and what they can do.</p>
+    </div>
+    <button onclick="document.getElementById('add-modal').classList.remove('hidden')"
+            class="btn-rose px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2">
+      <i class="fa-solid fa-user-plus"></i> Add Account
+    </button>
+  </div>
+
+  <!-- Role legend -->
+  <div class="grid grid-cols-3 gap-3">
+    <div class="bg-white rounded-xl p-3 border border-pink-100 card-shadow">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="badge badge-rose">👑 owner</span>
+      </div>
+      <p class="text-xs text-gray-500">Full access — analytics, team, settings, everything.</p>
+    </div>
+    <div class="bg-white rounded-xl p-3 border border-pink-100 card-shadow">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="badge badge-gold">🏆 manager</span>
+      </div>
+      <p class="text-xs text-gray-500">Staff, inventory, services, marketing, memberships.</p>
+    </div>
+    <div class="bg-white rounded-xl p-3 border border-pink-100 card-shadow">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="badge badge-gray">📋 receptionist</span>
+      </div>
+      <p class="text-xs text-gray-500">Appointments, billing, and customer records only.</p>
+    </div>
+  </div>
+
+  <!-- Users table -->
+  <div class="bg-white rounded-2xl card-shadow border border-pink-100 overflow-hidden">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="text-left">Name</th>
+            <th class="text-left">Email</th>
+            <th class="text-left">Role</th>
+            <th class="text-left">Status</th>
+            <th class="text-left">Last Login</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td>
+              <div class="font-medium text-gray-800">{{ u.full_name }}</div>
+              {% if u.id == session.get('admin_user_id') %}
+              <div class="text-xs text-rose-500 font-semibold">← you</div>
+              {% endif %}
+            </td>
+            <td class="text-gray-600">{{ u.email }}</td>
+            <td>
+              {% if u.role == 'owner' %}
+                <span class="badge badge-rose">👑 Owner</span>
+              {% elif u.role == 'manager' %}
+                <span class="badge badge-gold">🏆 Manager</span>
+              {% else %}
+                <span class="badge badge-gray">📋 Receptionist</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if u.is_active %}
+                <span class="badge badge-green">Active</span>
+              {% else %}
+                <span class="badge badge-red">Disabled</span>
+              {% endif %}
+            </td>
+            <td class="text-gray-500 text-xs">
+              {{ u.last_login[:16] if u.last_login else '—' }}
+            </td>
+            <td>
+              {% if u.id != session.get('admin_user_id') %}
+              <div class="flex items-center gap-2">
+                <!-- Change role -->
+                <button onclick="openRoleModal({{ u.id }}, '{{ u.full_name }}', '{{ u.role }}')"
+                        class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                  Role
+                </button>
+                <!-- Reset password -->
+                <button onclick="openPwdModal({{ u.id }}, '{{ u.full_name }}')"
+                        class="text-xs text-amber-700 hover:text-amber-900 font-medium">
+                  Pwd
+                </button>
+                <!-- Enable / disable -->
+                <form method="POST" action="/admin/team/{{ u.id }}/toggle">
+                  <button type="submit"
+                          class="text-xs {% if u.is_active %}text-red-500 hover:text-red-700{% else %}text-green-600 hover:text-green-800{% endif %} font-medium">
+                    {{ 'Disable' if u.is_active else 'Enable' }}
+                  </button>
+                </form>
+              </div>
+              {% else %}
+              <span class="text-xs text-gray-400">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── Add-user modal ──────────────────────────────────────────────────────── -->
+<div id="add-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"
+     style="background:rgba(0,0,0,.5);">
+  <div class="bg-white rounded-2xl p-6 w-full max-w-sm card-shadow">
+    <h3 class="font-display text-lg font-bold text-rose-900 mb-4">Add Admin Account</h3>
+    <form method="POST" action="/admin/team/add" class="space-y-3">
+      <div>
+        <label class="block text-xs font-semibold text-pink-700 uppercase tracking-wider mb-1">Full Name</label>
+        <input type="text" name="full_name" required placeholder="e.g. Priya Sharma"
+               class="w-full border border-pink-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-rose-400"/>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-pink-700 uppercase tracking-wider mb-1">Email Address</label>
+        <input type="email" name="email" required placeholder="priya@vanshika.com"
+               class="w-full border border-pink-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-rose-400"/>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-pink-700 uppercase tracking-wider mb-1">Role</label>
+        <select name="role"
+                class="w-full border border-pink-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-rose-400 bg-white">
+          <option value="receptionist">📋 Receptionist — appointments &amp; billing</option>
+          <option value="manager">🏆 Manager — + staff, services, marketing</option>
+          <option value="owner">👑 Owner — full access</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-pink-700 uppercase tracking-wider mb-1">Password <span class="text-gray-400 font-normal">(min 6 chars)</span></label>
+        <input type="password" name="password" required minlength="6" placeholder="Set a strong password"
+               class="w-full border border-pink-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-rose-400"/>
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="document.getElementById('add-modal').classList.add('hidden')"
+                class="flex-1 border border-gray-200 text-gray-600 rounded-xl py-2.5 text-sm font-medium">
+          Cancel
+        </button>
+        <button type="submit" class="flex-1 btn-rose rounded-xl py-2.5 text-sm font-semibold">
+          Create Account
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Change-role modal ────────────────────────────────────────────────────── -->
+<div id="role-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"
+     style="background:rgba(0,0,0,.5);">
+  <div class="bg-white rounded-2xl p-6 w-full max-w-xs card-shadow">
+    <h3 class="font-display text-lg font-bold text-rose-900 mb-1">Change Role</h3>
+    <p id="role-modal-name" class="text-gray-500 text-sm mb-4"></p>
+    <form id="role-form" method="POST" class="space-y-3">
+      <select name="role" id="role-select"
+              class="w-full border border-pink-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-rose-400">
+        <option value="receptionist">📋 Receptionist</option>
+        <option value="manager">🏆 Manager</option>
+        <option value="owner">👑 Owner</option>
+      </select>
+      <div class="flex gap-3">
+        <button type="button" onclick="document.getElementById('role-modal').classList.add('hidden')"
+                class="flex-1 border border-gray-200 text-gray-600 rounded-xl py-2.5 text-sm font-medium">Cancel</button>
+        <button type="submit" class="flex-1 btn-rose rounded-xl py-2.5 text-sm font-semibold">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Reset-password modal ─────────────────────────────────────────────────── -->
+<div id="pwd-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"
+     style="background:rgba(0,0,0,.5);">
+  <div class="bg-white rounded-2xl p-6 w-full max-w-xs card-shadow">
+    <h3 class="font-display text-lg font-bold text-rose-900 mb-1">Reset Password</h3>
+    <p id="pwd-modal-name" class="text-gray-500 text-sm mb-4"></p>
+    <form id="pwd-form" method="POST" class="space-y-3">
+      <input type="password" name="new_password" required minlength="6"
+             placeholder="New password (min 6 chars)"
+             class="w-full border border-pink-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-rose-400"/>
+      <div class="flex gap-3">
+        <button type="button" onclick="document.getElementById('pwd-modal').classList.add('hidden')"
+                class="flex-1 border border-gray-200 text-gray-600 rounded-xl py-2.5 text-sm font-medium">Cancel</button>
+        <button type="submit" class="flex-1 btn-rose rounded-xl py-2.5 text-sm font-semibold">Update</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openRoleModal(userId, name, currentRole) {
+  document.getElementById('role-form').action = '/admin/team/' + userId + '/change-role';
+  document.getElementById('role-modal-name').textContent = name;
+  document.getElementById('role-select').value = currentRole;
+  document.getElementById('role-modal').classList.remove('hidden');
+}
+function openPwdModal(userId, name) {
+  document.getElementById('pwd-form').action = '/admin/team/' + userId + '/reset-password';
+  document.getElementById('pwd-modal-name').textContent = name;
+  document.getElementById('pwd-modal').classList.remove('hidden');
+}
+</script>
+{% endblock %}

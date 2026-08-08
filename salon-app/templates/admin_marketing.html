@@ -1,0 +1,79 @@
+{% extends "admin_base.html" %}
+{% block title %}Marketing — VMA ERP{% endblock %}
+{% block page_title %}WhatsApp Marketing{% endblock %}
+
+{% block content %}
+<!-- Stats -->
+<div class="grid grid-cols-3 gap-2 mb-4">
+  <div class="stat-card text-center" style="border-color:#25D366;">
+    <div class="text-xl font-bold font-display" style="color:#128C7E;">{{ total_sent }}</div>
+    <div class="text-xs text-gray-500 mt-0.5">Messages Sent</div>
+  </div>
+  <div class="stat-card text-center">
+    <div class="text-xl font-bold font-display" style="color:#9d174d;">{{ camp_count }}</div>
+    <div class="text-xs text-gray-500 mt-0.5">Campaigns</div>
+  </div>
+  <div class="stat-card text-center" style="border-color:{% if active_rules %}#6ee7b7{% else %}#fde68a{% endif %};">
+    <div class="text-xl font-bold font-display" style="color:#065f46;">{{ active_rules }}</div>
+    <div class="text-xs text-gray-500 mt-0.5">Active Rules</div>
+  </div>
+</div>
+
+<!-- Quick actions -->
+<div class="grid grid-cols-2 gap-2 mb-5">
+  <a href="{{ url_for('admin_marketing_new') }}"
+     class="rounded-xl py-3.5 flex flex-col items-center gap-1 text-sm font-semibold text-white"
+     style="background:linear-gradient(135deg,#128C7E,#25D366);">
+    <i class="fa-brands fa-whatsapp text-xl"></i>
+    New Campaign
+  </a>
+  <a href="{{ url_for('admin_marketing_rules') }}"
+     class="rounded-xl py-3.5 flex flex-col items-center gap-1 text-sm font-semibold text-white"
+     style="background:linear-gradient(135deg,#9d174d,#be185d);">
+    <i class="fa-solid fa-robot text-xl"></i>
+    Auto Rules
+  </a>
+</div>
+
+<!-- Campaign history -->
+<h2 class="font-display text-base font-bold mb-3" style="color:#9d174d;">
+  <i class="fa-solid fa-clock-rotate-left mr-2 text-sm"></i>Campaign History
+</h2>
+
+{% if campaigns %}
+<div class="space-y-2">
+  {% for c in campaigns %}
+  <a href="{{ url_for('admin_marketing_detail', camp_id=c.id) }}"
+     class="bg-white rounded-2xl p-4 card-shadow flex items-start gap-3 block"
+     style="border:1px solid {% if c.segment_type == 'birthday_today' %}#fde68a{% else %}#d1fae5{% endif %};">
+    <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center"
+         style="background:{% if c.segment_type == 'birthday_today' %}linear-gradient(135deg,#fce7f3,#fde68a){% else %}linear-gradient(135deg,#d1fae5,#bbf7d0){% endif %};">
+      <i class="fa-brands fa-whatsapp text-sm" style="color:{% if c.segment_type == 'birthday_today' %}#b45309{% else %}#128C7E{% endif %};"></i>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="font-semibold text-sm text-gray-800 truncate">{{ c.name }}</div>
+      <div class="text-xs text-gray-400 mt-0.5">{{ c.created_at[:10] if c.created_at else '' }}</div>
+      <div class="flex gap-2 mt-1 flex-wrap">
+        <span class="badge badge-green" style="font-size:10px;">
+          <i class="fa-solid fa-paper-plane mr-1"></i>{{ c.sent_count }} sent
+        </span>
+        <span class="badge badge-gray" style="font-size:10px;">{{ c.segment_type | replace('_',' ') | title }}</span>
+      </div>
+    </div>
+    <i class="fa-solid fa-chevron-right text-xs text-gray-300 flex-shrink-0 mt-1"></i>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-2xl p-8 card-shadow text-center" style="border:1px solid #fde68a;">
+  <div class="text-4xl mb-3">📱</div>
+  <div class="font-display font-bold text-gray-700 mb-1">No campaigns yet</div>
+  <div class="text-sm text-gray-400 mb-4">Send your first WhatsApp campaign to your customers</div>
+  <a href="{{ url_for('admin_marketing_new') }}"
+     class="inline-block text-white text-sm font-semibold px-5 py-2.5 rounded-xl"
+     style="background:linear-gradient(135deg,#128C7E,#25D366);">
+    Create Campaign
+  </a>
+</div>
+{% endif %}
+{% endblock %}

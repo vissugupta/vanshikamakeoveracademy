@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}My Account — Vanshika Makeover Academy{% endblock %}
+
+{% block content %}
+<div class="pt-5 pb-4">
+
+  <!-- Header banner -->
+  <div class="relative rounded-2xl overflow-hidden mb-5" style="height:140px; background:#0d0d0d; border:1px solid rgba(201,169,110,.15);">
+    <div class="absolute top-0 left-0 right-0" style="height:2px; background:linear-gradient(90deg,#a07840,#d4af37,#f0d880,#d4af37,#a07840);"></div>
+    <!-- Subtle gold glow orbs -->
+    <div class="absolute -top-6 -right-6 w-32 h-32 rounded-full opacity-20" style="background:radial-gradient(circle,#d4af37,transparent);"></div>
+    <div class="absolute -bottom-4 -left-4 w-20 h-20 rounded-full opacity-10" style="background:radial-gradient(circle,#c9a96e,transparent);"></div>
+    <div class="absolute inset-0 flex flex-col items-center justify-center">
+      <div class="w-12 h-12 rounded-full flex items-center justify-center mb-2"
+           style="background:linear-gradient(135deg,#a07840,#d4af37); box-shadow:0 0 16px rgba(212,175,55,.3);">
+        <i class="fa-solid fa-user-circle text-lg" style="color:#0a0a0a;"></i>
+      </div>
+      <h1 class="font-display text-2xl font-bold drop-shadow-sm" style="color:#f5f0e8;">My Account</h1>
+       <p class="text-xs mt-1 tracking-wide" style="color:#c9a96e;">Verify your email to view your visits &amp; bookings</p>
+    </div>
+  </div>
+
+  {% if error %}
+  <div class="rounded-2xl p-4 mb-5 flex gap-3"
+       style="background:#1f0d0d; border:1px solid #5a2d2d;">
+    <i class="fa-solid fa-circle-exclamation flex-shrink-0 mt-0.5" style="color:#fca5a5;"></i>
+    <div class="text-sm" style="color:#fca5a5;">{{ error }}</div>
+  </div>
+  {% endif %}
+
+  <!-- Login Card -->
+  <div class="rounded-2xl p-6 mb-4"
+       style="background:#111111; border:1px solid rgba(201,169,110,.18); box-shadow:0 8px 40px rgba(0,0,0,.6);">
+
+    <!-- Ornament -->
+    <div class="ornament-line mb-5" style="font-size:10px; color:#c9a96e;">
+      <i class="fa-solid fa-phone text-xs" style="color:#c9a96e;"></i>
+       Enter your registered phone to receive an OTP
+      <i class="fa-solid fa-phone text-xs" style="color:#c9a96e;"></i>
+    </div>
+
+  <form method="POST" action="/my/login" id="customerLoginForm">
+      <div class="mb-4">
+        <label class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider mb-2" style="color:#c9a96e;">
+          <i class="fa-solid fa-phone w-4 text-center"></i>
+          Mobile Number <span style="color:#fca5a5;">*</span>
+        </label>
+        <input
+          type="tel" name="phone"
+          placeholder="10-digit mobile number"
+          pattern="[0-9]{10}" inputmode="numeric"
+          autofocus required
+          class="w-full rounded-xl px-4 py-3 focus:outline-none transition"
+          style="border:1px solid rgba(201,169,110,.25);"
+          onfocus="this.style.borderColor='rgba(212,175,55,.6)'"
+          onblur="this.style.borderColor='rgba(201,169,110,.25)'"
+        />
+      </div>
+      <button type="submit"
+              class="btn-gold w-full py-4 rounded-2xl text-base font-bold shadow-lg flex items-center justify-center gap-2">
+        <i class="fa-solid fa-right-to-bracket"></i>
+         Send Login OTP
+        <i class="fa-solid fa-arrow-right text-sm opacity-80"></i>
+      </button>
+    </form>
+  </div>
+
+  <!-- Info box -->
+  <div class="rounded-2xl p-4 flex gap-3"
+       style="background:#111111; border:1px solid rgba(201,169,110,.12);">
+    <i class="fa-solid fa-circle-info flex-shrink-0 mt-0.5" style="color:#c9a96e;"></i>
+    <div class="text-xs" style="color:#b8a888;">
+      <span class="font-semibold block mb-0.5" style="color:#f5f0e8;">First time?</span>
+      Your account is created automatically when you book your first appointment.
+      <a href="/book" class="underline font-semibold ml-1" style="color:#d4af37;">Book now →</a>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  document.getElementById('customerLoginForm')?.addEventListener('submit', function() {
+    const submit = this.querySelector('button[type="submit"]');
+    if (submit) {
+      submit.disabled = true;
+      submit.style.opacity = '0.7';
+      submit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending login OTP…';
+    }
+  });
+</script>
+{% endblock %}

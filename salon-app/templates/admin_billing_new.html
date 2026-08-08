@@ -1,0 +1,469 @@
+{% extends "admin_base.html" %}
+{% block title %}New Invoice — VMA ERP{% endblock %}
+{% block page_title %}New Invoice{% endblock %}
+
+{% block head %}
+<style>
+  .line-row { background:#fff; border:1px solid #fde68a; border-radius:12px; padding:10px 12px; margin-bottom:6px; }
+  .remove-btn { color:#dc2626; background:#fee2e2; border:none; border-radius:8px; width:28px; height:28px;
+                display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
+  .remove-btn:hover { background:#fecaca; }
+  .total-row { display:flex; justify-content:space-between; padding:5px 0; font-size:14px; }
+  .total-row.grand { font-weight:700; font-size:15px; color:#065f46; border-top:2px solid #d1fae5; margin-top:4px; padding-top:8px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<form id="invoice-form" method="post" action="{{ url_for('admin_billing_new') }}">
+  <input type="hidden" name="items_json" id="items-json"/>
+
+  <!-- Customer section -->
+  <div class="bg-white rounded-2xl p-4 mb-3 card-shadow" style="border:1px solid #fde68a;">
+    <h2 class="font-display font-bold text-base mb-3" style="color:#9d174d;">
+      <i class="fa-solid fa-user mr-2"></i>Customer
+    </h2>
+    <div class="relative mb-2">
+      <input id="cust-search" type="text" placeholder="Search by name or phone…"
+             class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm pr-8"
+             autocomplete="off"/>
+      <div id="cust-dropdown"
+           class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 max-h-40 overflow-y-auto"></div>
+    </div>
+    <div id="cust-selected" class="hidden p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-sm mb-2">
+      <div class="flex items-center justify-between">
+        <div>
+          <span id="cust-sel-name" class="font-semibold text-emerald-700"></span>
+          <span id="cust-sel-phone" class="text-emerald-600 ml-2 text-xs"></span>
+        </div>
+        <button type="button" onclick="clearCustomer()" class="text-xs text-gray-400 hover:text-red-500">✕</button>
+      </div>
+    </div>
+    <input type="hidden" name="customer_id" id="customer-id"/>
+    <!-- Membership badge shown when customer has active membership -->
+    <div id="membership-badge" class="hidden p-2.5 rounded-xl mb-2 text-xs font-semibold flex items-center gap-2"
+         style="background:#d1fae5; border:1px solid #6ee7b7; color:#065f46;">
+      <i class="fa-solid fa-gem"></i>
+      <span id="membership-label"></span>
+      <span class="ml-auto text-emerald-600 text-xs">✓ discount applied</span>
+    </div>
+    <!-- Loyalty points redemption panel -->
+    <div id="loyalty-section" class="hidden p-3 rounded-xl mb-2"
+         style="background:#fffbf0; border:1px solid #fde68a;">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-semibold" style="color:#92400e;">
+          <i class="fa-solid fa-coins mr-1" style="color:#d97706;"></i>Loyalty Points
+        </span>
+        <span id="loyalty-balance-text" class="text-xs font-bold" style="color:#92400e;"></span>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <label class="text-xs text-gray-500 flex-shrink-0">Redeem:</label>
+        <input type="number" name="points_redeemed" id="points-redeemed"
+               min="0" value="0" oninput="onPointsChange()"
+               class="border border-gray-200 rounded-lg px-2 py-1 text-sm"
+               style="width:72px;"/>
+        <span class="text-xs text-gray-400">pts</span>
+        <span class="text-xs font-semibold text-emerald-600" id="points-value-text">= ₹0 off</span>
+        <button type="button" onclick="redeemAllPoints()"
+                class="ml-auto text-xs px-2.5 py-1 rounded-lg font-semibold"
+                style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d;">
+          Use All
+        </button>
+      </div>
+    </div>
+    <div id="walkin-fields">
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-xs font-semibold text-gray-500">Walk-in Name</label>
+          <input name="customer_name" id="walkin-name" placeholder="Full name"
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-0.5"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-500">Phone</label>
+          <input name="customer_phone" id="walkin-phone" placeholder="10-digit"
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-0.5"/>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Line items -->
+  <div class="bg-white rounded-2xl p-4 mb-3 card-shadow" style="border:1px solid #fde68a;">
+    <h2 class="font-display font-bold text-base mb-3" style="color:#9d174d;">
+      <i class="fa-solid fa-list-check mr-2"></i>Services & Products
+    </h2>
+    <div id="line-items"></div>
+    <div class="grid grid-cols-2 gap-2 mt-3">
+      <button type="button" onclick="addServiceRow()"
+              class="py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-1"
+              style="background:#fce7f3; border:1px solid #f9a8d4; color:#9d174d;">
+        <i class="fa-solid fa-plus text-xs"></i> Add Service
+      </button>
+      <button type="button" onclick="addProductRow()"
+              class="py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-1"
+              style="background:#fef3c7; border:1px solid #fcd34d; color:#92400e;">
+        <i class="fa-solid fa-plus text-xs"></i> Add Product
+      </button>
+    </div>
+  </div>
+
+  <!-- Discount & GST -->
+  <div class="bg-white rounded-2xl p-4 mb-3 card-shadow" style="border:1px solid #fde68a;">
+    <h2 class="font-display font-bold text-base mb-3" style="color:#9d174d;">
+      <i class="fa-solid fa-tag mr-2"></i>Discount & Tax
+    </h2>
+    <div class="grid grid-cols-3 gap-2 mb-3">
+      <div>
+        <label class="text-xs font-semibold text-gray-500">Type</label>
+        <select name="discount_type" id="discount-type" onchange="calcTotals()"
+                class="w-full border border-gray-200 rounded-xl px-2 py-2 text-sm mt-0.5">
+          <option value="flat">Flat (₹)</option>
+          <option value="percent">Percent (%)</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-gray-500">Discount</label>
+        <input type="number" name="discount_value" id="discount-value" min="0" step="0.01" value="0"
+               oninput="calcTotals()"
+               class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-0.5"/>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-gray-500">GST %</label>
+        <select name="gst_pct" id="gst-pct" onchange="calcTotals()"
+                class="w-full border border-gray-200 rounded-xl px-2 py-2 text-sm mt-0.5">
+          <option value="0">None</option>
+          <option value="5">5%</option>
+          <option value="12">12%</option>
+          <option value="18">18%</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Totals summary -->
+  <div class="bg-white rounded-2xl p-4 mb-3 card-shadow" style="border:1px solid #fde68a;">
+    <div class="total-row"><span class="text-gray-500">Subtotal</span><span id="tot-subtotal">₹0</span></div>
+    <div class="total-row" id="tot-disc-row"><span class="text-gray-500">Discount</span><span id="tot-discount" class="text-red-600">-₹0</span></div>
+    <div class="total-row" id="tot-gst-row"><span class="text-gray-500">GST</span><span id="tot-gst">+₹0</span></div>
+    <div class="total-row hidden" id="tot-pts-row"><span class="text-gray-500">Points Redeemed</span><span id="tot-points" class="text-emerald-600">-₹0</span></div>
+    <div class="total-row grand"><span>Total</span><span id="tot-total">₹0</span></div>
+  </div>
+
+  <!-- Payment -->
+  <div class="bg-white rounded-2xl p-4 mb-4 card-shadow" style="border:1px solid #fde68a;">
+    <h2 class="font-display font-bold text-base mb-3" style="color:#9d174d;">
+      <i class="fa-solid fa-credit-card mr-2"></i>Payment
+    </h2>
+    <div class="grid grid-cols-3 gap-2 mb-3">
+      {% for method, icon, label in [('cash','💵','Cash'), ('card','💳','Card'), ('upi','📱','UPI')] %}
+      <label class="relative cursor-pointer">
+        <input type="radio" name="payment_method" value="{{ method }}" class="sr-only peer"
+               {% if method == 'cash' %}checked{% endif %}/>
+        <div class="border-2 border-gray-200 rounded-xl py-3 text-center text-sm font-semibold text-gray-600
+                    peer-checked:border-rose-400 peer-checked:bg-rose-50 peer-checked:text-rose-700 transition">
+          {{ icon }}<br/>{{ label }}
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="grid grid-cols-2 gap-2 mb-2">
+      <div>
+        <label class="text-xs font-semibold text-gray-500">Status</label>
+        <select name="status" class="w-full border border-gray-200 rounded-xl px-2 py-2 text-sm mt-0.5">
+          <option value="paid">Paid</option>
+          <option value="unpaid">Unpaid</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-gray-500">Notes</label>
+        <input name="notes" placeholder="Optional…"
+               class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-0.5"/>
+      </div>
+    </div>
+    <div>
+      <label class="text-xs font-semibold text-gray-500">Assign Staff</label>
+      <select name="staff_id" id="staff-select" class="w-full border border-gray-200 rounded-xl px-2 py-2 text-sm mt-0.5">
+        <option value="">— None —</option>
+        {% for s in active_staff %}
+        <option value="{{ s.id }}">{{ s.name }} ({{ s.role }})</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <button type="submit" onclick="return prepareSubmit()"
+          class="btn-rose w-full py-4 rounded-xl font-bold text-base flex items-center justify-center gap-2">
+    <i class="fa-solid fa-floppy-disk"></i> Save Invoice
+  </button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SERVICES = {{ services_json | safe }};
+const PRODUCTS = {{ products_json | safe }};
+
+// Line items state
+let lineItems = [];
+let rowCounter = 0;
+
+function addServiceRow() {
+  const id = rowCounter++;
+  lineItems.push({ id, type: 'service', item_id: 0, name: '', price: 0, qty: 1 });
+  renderRows();
+}
+
+function addProductRow() {
+  const id = rowCounter++;
+  lineItems.push({ id, type: 'product', item_id: 0, name: '', price: 0, qty: 1 });
+  renderRows();
+}
+
+function removeRow(id) {
+  lineItems = lineItems.filter(r => r.id !== id);
+  renderRows();
+}
+
+function renderRows() {
+  const container = document.getElementById('line-items');
+  container.innerHTML = '';
+  lineItems.forEach(row => {
+    const isService = row.type === 'service';
+    const options = (isService ? SERVICES : PRODUCTS).map(item =>
+      `<option value="${item.id}" data-price="${item.price}" data-name="${item.name}"
+        ${row.name === item.name ? 'selected' : ''}>${item.name}${item.price > 0 ? ' — ₹'+item.price : ''}</option>`
+    ).join('');
+
+    container.innerHTML += `
+      <div class="line-row flex items-center gap-2" id="row-${row.id}">
+        <div style="background:${isService ? '#fce7f3' : '#fef3c7'};border-radius:8px;padding:4px 8px;font-size:11px;font-weight:700;
+                    color:${isService ? '#9d174d' : '#92400e'};flex-shrink:0;">
+          ${isService ? 'SVC' : 'PRD'}
+        </div>
+        <select class="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm"
+                onchange="onSelectItem(${row.id}, this)">
+          <option value="">-- Select ${isService ? 'Service' : 'Product'} --</option>
+          ${options}
+        </select>
+        <input type="number" min="1" value="${row.qty}"
+               class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center" style="width:52px;"
+               onchange="onQtyChange(${row.id}, this)" oninput="onQtyChange(${row.id}, this)"/>
+        <div style="min-width:50px;text-align:right;font-size:13px;font-weight:600;color:#065f46;">
+          ₹${(row.price * row.qty).toFixed(0)}
+        </div>
+        <button type="button" class="remove-btn" onclick="removeRow(${row.id})">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      </div>`;
+  });
+  calcTotals();
+}
+
+function onSelectItem(id, select) {
+  const opt = select.selectedOptions[0];
+  const row = lineItems.find(r => r.id === id);
+  if (row && opt.value) {
+    row.item_id = parseInt(opt.value);
+    row.name    = opt.dataset.name;
+    row.price   = parseFloat(opt.dataset.price) || 0;
+    // Update price display
+    const priceEl = document.querySelector(`#row-${id} div[style*="065f46"]`);
+    if (priceEl) priceEl.textContent = '₹' + (row.price * row.qty).toFixed(0);
+  }
+  calcTotals();
+}
+
+function onQtyChange(id, input) {
+  const row = lineItems.find(r => r.id === id);
+  if (row) {
+    row.qty = Math.max(1, parseInt(input.value) || 1);
+    const priceEl = document.querySelector(`#row-${id} div[style*="065f46"]`);
+    if (priceEl) priceEl.textContent = '₹' + (row.price * row.qty).toFixed(0);
+  }
+  calcTotals();
+}
+
+let loyaltyBalance = 0;  // customer's current points balance
+
+function calcTotals() {
+  const subtotal = lineItems.reduce((s, r) => s + r.price * r.qty, 0);
+  const discType = document.getElementById('discount-type').value;
+  const discVal  = parseFloat(document.getElementById('discount-value').value) || 0;
+  const gstPct   = parseFloat(document.getElementById('gst-pct').value) || 0;
+
+  let discAmt = discType === 'percent' ? subtotal * discVal / 100 : Math.min(discVal, subtotal);
+  const afterDisc = Math.max(0, subtotal - discAmt);
+  const gstAmt  = afterDisc * gstPct / 100;
+  let total     = afterDisc + gstAmt;
+
+  // Loyalty points — clamp to balance and available total
+  const ptsInput = document.getElementById('points-redeemed');
+  let ptsRaw = ptsInput ? (parseInt(ptsInput.value) || 0) : 0;
+  const ptsApplied = Math.min(ptsRaw, loyaltyBalance, Math.floor(total));
+  if (ptsInput && ptsRaw > ptsApplied) ptsInput.value = ptsApplied;  // clamp visible value
+  total = Math.max(0, total - ptsApplied);
+
+  document.getElementById('tot-subtotal').textContent = '₹' + subtotal.toFixed(0);
+  document.getElementById('tot-discount').textContent = '-₹' + discAmt.toFixed(0);
+  document.getElementById('tot-gst').textContent     = '+₹' + gstAmt.toFixed(0);
+  document.getElementById('tot-total').textContent   = '₹' + total.toFixed(0);
+
+  document.getElementById('tot-disc-row').style.display = discAmt > 0 ? '' : 'none';
+  document.getElementById('tot-gst-row').style.display  = gstAmt > 0 ? '' : 'none';
+
+  const ptsRow = document.getElementById('tot-pts-row');
+  const ptsTxt = document.getElementById('tot-points');
+  if (ptsApplied > 0) {
+    ptsTxt.textContent = '-₹' + ptsApplied;
+    ptsRow.classList.remove('hidden');
+  } else {
+    ptsRow.classList.add('hidden');
+  }
+  if (document.getElementById('points-value-text')) {
+    document.getElementById('points-value-text').textContent = '= ₹' + ptsApplied + ' off';
+  }
+}
+
+function onPointsChange() { calcTotals(); }
+
+function redeemAllPoints() {
+  const input = document.getElementById('points-redeemed');
+  if (input) { input.value = loyaltyBalance; calcTotals(); }
+}
+
+function prepareSubmit() {
+  if (lineItems.length === 0) { alert('Please add at least one service or product.'); return false; }
+  if (lineItems.some(r => !r.item_id || r.item_id <= 0)) {
+    alert('Please select an item for each row.'); return false;
+  }
+  if (lineItems.some(r => r.qty < 1)) {
+    alert('Quantity must be at least 1 for each item.'); return false;
+  }
+  // Only send item_id, type, qty — server fetches canonical price from DB
+  const payload = lineItems.map(r => ({
+    type: r.type, item_id: r.item_id, qty: r.qty
+  }));
+  document.getElementById('items-json').value = JSON.stringify(payload);
+  return true;
+}
+
+// Customer search
+let searchTimeout;
+document.getElementById('cust-search').addEventListener('input', function() {
+  clearTimeout(searchTimeout);
+  const q = this.value.trim();
+  if (q.length < 2) { document.getElementById('cust-dropdown').classList.add('hidden'); return; }
+  searchTimeout = setTimeout(() => {
+    fetch('/admin/api/customers?q=' + encodeURIComponent(q))
+      .then(r => r.json())
+      .then(data => {
+        const dd = document.getElementById('cust-dropdown');
+        if (!data.length) { dd.classList.add('hidden'); return; }
+        dd.innerHTML = data.map(c =>
+          `<div class="px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-100 last:border-0"
+                onclick="selectCustomer(${c.id}, '${c.name.replace(/'/g,"\\'")}', '${c.phone}')">
+            <span class="font-medium">${c.name}</span>
+            <span class="text-gray-400 ml-2 text-xs">${c.phone}</span>
+           </div>`).join('');
+        dd.classList.remove('hidden');
+      });
+  }, 300);
+});
+
+let membershipDiscPct = 0;
+
+function selectCustomer(id, name, phone) {
+  document.getElementById('customer-id').value = id;
+  document.getElementById('cust-sel-name').textContent = name;
+  document.getElementById('cust-sel-phone').textContent = phone;
+  document.getElementById('cust-selected').classList.remove('hidden');
+  document.getElementById('walkin-fields').classList.add('hidden');
+  document.getElementById('cust-dropdown').classList.add('hidden');
+  document.getElementById('cust-search').value = name;
+  // Show the loyalty area immediately while the customer's balance loads.
+  loyaltyBalance = 0;
+  document.getElementById('points-redeemed').value = 0;
+  document.getElementById('loyalty-balance-text').textContent = 'Checking balance…';
+  document.getElementById('loyalty-section').classList.remove('hidden');
+  calcTotals();
+  // Fetch membership status and auto-apply discount
+  fetch('/admin/api/customer-membership?customer_id=' + id)
+    .then(r => r.json())
+    .then(data => {
+      const badge = document.getElementById('membership-badge');
+      const label = document.getElementById('membership-label');
+      if (data.active && data.discount_pct > 0) {
+        membershipDiscPct = data.discount_pct;
+        label.textContent = '💎 ' + data.plan_name + ' — ' + data.discount_pct + '% off (expires ' + data.expiry_date + ')';
+        badge.classList.remove('hidden');
+        document.getElementById('discount-type').value = 'percent';
+        document.getElementById('discount-value').value = membershipDiscPct;
+        calcTotals();
+      } else {
+        membershipDiscPct = 0;
+        badge.classList.add('hidden');
+      }
+    })
+    .catch(() => { membershipDiscPct = 0; });
+  // Fetch loyalty points balance (and any pre-reserved amount)
+  fetch('/admin/api/customer-loyalty?customer_id=' + id)
+    .then(r => r.json())
+    .then(data => {
+      // 'points' already includes reserved (see API: loyalty_points + points_reserved)
+      loyaltyBalance = data.points || 0;
+      const reserved = data.points_reserved || 0;
+      const section  = document.getElementById('loyalty-section');
+      const balTxt   = document.getElementById('loyalty-balance-text');
+      if (loyaltyBalance > 0) {
+        let label = loyaltyBalance + ' pts available (₹' + loyaltyBalance + ' value)';
+        if (reserved > 0) label += ' — ' + reserved + ' pre-reserved by customer ✓';
+        if (data.expiry_date) label += ' · valid until ' + data.expiry_date;
+        balTxt.textContent = label;
+        // Pre-fill with the customer's pre-reserved amount if any
+        document.getElementById('points-redeemed').value = reserved > 0 ? reserved : 0;
+      } else {
+        loyaltyBalance = 0;
+        balTxt.textContent = 'No loyalty points available';
+        document.getElementById('points-redeemed').value = 0;
+      }
+      section.classList.remove('hidden');
+      calcTotals();
+    })
+    .catch(() => {
+      loyaltyBalance = 0;
+      document.getElementById('loyalty-balance-text').textContent = 'Unable to load loyalty balance';
+      document.getElementById('points-redeemed').value = 0;
+      document.getElementById('loyalty-section').classList.remove('hidden');
+      calcTotals();
+    });
+}
+
+function clearCustomer() {
+  document.getElementById('customer-id').value = '';
+  document.getElementById('cust-selected').classList.add('hidden');
+  document.getElementById('walkin-fields').classList.remove('hidden');
+  document.getElementById('cust-search').value = '';
+  document.getElementById('membership-badge').classList.add('hidden');
+  document.getElementById('loyalty-section').classList.add('hidden');
+  document.getElementById('points-redeemed').value = 0;
+  loyaltyBalance = 0;
+  // Reset discount if it was auto-applied by membership
+  if (membershipDiscPct > 0) {
+    document.getElementById('discount-type').value = 'flat';
+    document.getElementById('discount-value').value = '0';
+    calcTotals();
+  } else {
+    calcTotals();
+  }
+  membershipDiscPct = 0;
+}
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#cust-search') && !e.target.closest('#cust-dropdown')) {
+    document.getElementById('cust-dropdown').classList.add('hidden');
+  }
+});
+
+// Init
+calcTotals();
+</script>
+{% endblock %}

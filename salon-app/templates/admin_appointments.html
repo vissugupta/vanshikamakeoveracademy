@@ -1,0 +1,490 @@
+{% extends "admin_base.html" %}
+{% block title %}Appointments — VMA ERP{% endblock %}
+{% block page_title %}Appointments{% endblock %}
+
+{% block content %}
+<!-- Search & filters -->
+<form method="GET" class="bg-white rounded-2xl p-4 card-shadow mb-4" style="border:1px solid #fde68a;">
+  <div class="flex gap-2 mb-3">
+    <div class="relative flex-1">
+      <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs" style="color:#d97706;"></i>
+      <input type="text" name="q" value="{{ q }}" placeholder="Name, phone, service…"
+             class="w-full rounded-xl pl-8 pr-3 py-2.5 text-sm focus:outline-none"
+             style="border:1.5px solid #fde68a; background:#fffbf0;">
+    </div>
+    <button type="submit" class="btn-gold px-4 rounded-xl text-sm font-semibold">Search</button>
+  </div>
+  <div class="flex gap-2">
+    <input type="date" name="date_from" value="{{ date_from }}"
+           class="flex-1 rounded-xl px-3 py-2 text-sm focus:outline-none"
+           style="border:1.5px solid #fde68a; background:#fffbf0;">
+    <span class="self-center text-xs text-gray-400">to</span>
+    <input type="date" name="date_to" value="{{ date_to }}"
+           class="flex-1 rounded-xl px-3 py-2 text-sm focus:outline-none"
+           style="border:1.5px solid #fde68a; background:#fffbf0;">
+  </div>
+</form>
+
+<div class="flex items-center justify-between mb-3">
+  <h2 class="font-display text-base font-bold" style="color:#9d174d;">
+    {{ appointments|length }} Appointment{{ 's' if appointments|length != 1 else '' }}
+  </h2>
+  {% if q or date_from or date_to %}
+  <a href="{{ url_for('admin_appointments') }}" class="text-xs text-gray-400 underline">Clear filters</a>
+  {% endif %}
+</div>
+
+<!-- Booking calendar -->
+<section class="bg-white rounded-2xl p-4 card-shadow mb-5" style="border:1px solid #fde68a;">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div>
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-calendar-days" style="color:#d97706;"></i>
+        <h2 class="font-display text-base font-bold" style="color:#9d174d;">Booking Calendar</h2>
+      </div>
+      <p id="calendar-range-label" class="text-xs text-gray-400 mt-1"></p>
+    </div>
+    <div class="flex items-center gap-1.5">
+      <button type="button" id="calendar-prev" class="calendar-nav-btn" aria-label="Previous period">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+      <button type="button" id="calendar-today" class="calendar-today-btn">Today</button>
+      <button type="button" id="calendar-next" class="calendar-nav-btn" aria-label="Next period">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+    <div class="flex rounded-xl p-1 gap-1" style="background:#fffbf0;border:1px solid #fde68a;">
+      <button type="button" class="calendar-view-btn active" data-calendar-view="day">Day</button>
+      <button type="button" class="calendar-view-btn" data-calendar-view="week">Week</button>
+      <button type="button" class="calendar-view-btn" data-calendar-view="month">Month</button>
+    </div>
+    <div class="flex items-center gap-3 text-xs text-gray-400">
+      <span><i class="fa-solid fa-circle mr-1" style="color:#be185d;font-size:8px;"></i>Confirmed</span>
+      <span><i class="fa-solid fa-circle mr-1" style="color:#d97706;font-size:8px;"></i>Pending</span>
+      <span><i class="fa-solid fa-circle mr-1" style="color:#9ca3af;font-size:8px;"></i>Other</span>
+    </div>
+  </div>
+
+  <div id="booking-calendar" class="booking-calendar"></div>
+</section>
+
+{% if appointments %}
+<div class="space-y-2">
+  {% for appt in appointments %}
+  <div class="bg-white rounded-2xl p-4 card-shadow" style="border:1px solid #fde68a;">
+    <div class="flex items-start justify-between gap-2">
+      <div class="flex-1 min-w-0">
+        <div class="font-semibold text-sm text-gray-800">{{ appt['name'] }}</div>
+        <div class="text-xs text-pink-600">{{ appt['service'] }}</div>
+        <div class="text-xs text-gray-400">{{ appt['category'] }}</div>
+        <div class="flex gap-2 mt-2 flex-wrap">
+          <span class="badge badge-rose" style="font-size:10px;">📅 {{ appt['date'] }}</span>
+          <span class="badge badge-gold" style="font-size:10px;">⏰ {{ appt['time'] }}</span>
+          <span class="badge badge-gray" style="font-size:10px;">📞 {{ appt['phone'] }}</span>
+          {% if appt['staff_name'] %}
+          <span class="badge badge-green" style="font-size:10px;background:#d1fae5;color:#065f46;">
+            <i class="fa-solid fa-user-tie mr-1"></i>{{ appt['staff_name'] }}
+          </span>
+          {% endif %}
+        </div>
+        {% if appt['email'] %}
+        <div class="text-xs text-gray-400 mt-1.5">✉ {{ appt['email'] }}</div>
+        {% endif %}
+        <div class="text-xs text-gray-300 mt-1">
+          #VMA-{{ appt['id'] }} · {{ appt['created_at'][:10] if appt['created_at'] else '' }}
+        </div>
+        <!-- Staff assignment -->
+        {% if active_staff %}
+        <form method="POST" action="{{ url_for('admin_appt_assign_staff', appt_id=appt['id']) }}"
+              class="mt-2 flex gap-1.5 items-center">
+          <select name="staff_id"
+                  class="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs">
+            <option value="">— Assign staff —</option>
+            {% for s in active_staff %}
+            <option value="{{ s.id }}" {% if appt['staff_id'] == s.id %}selected{% endif %}>
+              {{ s.name }} ({{ s.role }})
+            </option>
+            {% endfor %}
+          </select>
+          <button type="submit"
+                  class="text-xs font-semibold py-1 px-2.5 rounded-lg border border-amber-200 text-amber-700 hover:bg-amber-50 flex-shrink-0">
+            Save
+          </button>
+        </form>
+        {% endif %}
+      </div>
+      <form method="POST" action="{{ url_for('delete_appointment', appt_id=appt['id']) }}"
+            onsubmit="return confirm('Delete this appointment?')">
+        <button type="submit"
+                class="flex-shrink-0 bg-red-50 border border-red-200 text-red-600 text-xs font-bold px-3 py-1.5 rounded-lg">
+          <i class="fa-solid fa-trash-can"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-2xl p-10 text-center card-shadow" style="border:1px solid #fde68a;">
+  <div class="text-4xl mb-3">📭</div>
+  <div class="text-gray-400 text-sm">No appointments found</div>
+  {% if q or date_from or date_to %}
+  <a href="{{ url_for('admin_appointments') }}" class="text-xs text-pink-600 underline mt-2 block">Clear filters</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block head %}
+<style>
+  .calendar-nav-btn,
+  .calendar-today-btn,
+  .calendar-view-btn {
+    border: 1px solid #fde68a;
+    color: #92400e;
+    background: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    transition: all .15s ease;
+  }
+  .calendar-nav-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+  }
+  .calendar-today-btn {
+    height: 32px;
+    border-radius: 10px;
+    padding: 0 12px;
+  }
+  .calendar-nav-btn:hover,
+  .calendar-today-btn:hover,
+  .calendar-view-btn:hover {
+    background: #fef3c7;
+  }
+  .calendar-view-btn {
+    border: 0;
+    border-radius: 9px;
+    padding: 7px 13px;
+    background: transparent;
+  }
+  .calendar-view-btn.active {
+    color: #fff;
+    background: linear-gradient(135deg,#be185d,#db2777);
+    box-shadow: 0 2px 7px rgba(190,24,93,.2);
+  }
+  .booking-calendar { overflow-x: auto; }
+  .calendar-empty {
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9ca3af;
+    font-size: 12px;
+  }
+  .calendar-week-grid {
+    min-width: 680px;
+    display: grid;
+    grid-template-columns: 52px repeat(7, minmax(82px, 1fr));
+    border-top: 1px solid #fde68a;
+    border-left: 1px solid #fde68a;
+  }
+  .calendar-week-head {
+    min-height: 48px;
+    padding: 7px 5px;
+    text-align: center;
+    background: #fffbf0;
+    border-right: 1px solid #fde68a;
+    border-bottom: 1px solid #fde68a;
+  }
+  .calendar-week-head.today { background: #fce7f3; }
+  .calendar-week-head .weekday {
+    display: block;
+    color: #92400e;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .calendar-week-head .day-number {
+    display: block;
+    color: #6b7280;
+    font-size: 16px;
+    font-weight: 700;
+    margin-top: 2px;
+  }
+  .calendar-time-label {
+    height: 62px;
+    padding: 5px 5px 0 0;
+    text-align: right;
+    color: #9ca3af;
+    font-size: 10px;
+    border-right: 1px solid #fde68a;
+    border-bottom: 1px solid #fde68a;
+  }
+  .calendar-day-column {
+    min-height: 62px;
+    padding: 3px;
+    border-right: 1px solid #fde68a;
+    border-bottom: 1px solid #fde68a;
+    background: #fff;
+  }
+  .calendar-day-column.today { background: #fffaf2; }
+  .calendar-event {
+    display: block;
+    width: 100%;
+    margin-bottom: 4px;
+    padding: 6px 7px;
+    border-radius: 8px;
+    border-left: 3px solid #be185d;
+    background: #fce7f3;
+    color: #831843;
+    text-align: left;
+    font-size: 11px;
+    line-height: 1.3;
+    cursor: default;
+  }
+  .calendar-event.pending { border-left-color: #d97706; background: #fef3c7; color: #92400e; }
+  .calendar-event.other { border-left-color: #9ca3af; background: #f3f4f6; color: #4b5563; }
+  .calendar-event strong { display: block; font-size: 11px; }
+  .calendar-event small { display: block; opacity: .8; margin-top: 2px; }
+  .calendar-month-grid {
+    min-width: 640px;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(88px, 1fr));
+    border-top: 1px solid #fde68a;
+    border-left: 1px solid #fde68a;
+  }
+  .calendar-month-weekday {
+    padding: 8px 5px;
+    text-align: center;
+    color: #92400e;
+    background: #fffbf0;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    border-right: 1px solid #fde68a;
+    border-bottom: 1px solid #fde68a;
+  }
+  .calendar-month-cell {
+    min-height: 108px;
+    padding: 6px;
+    background: #fff;
+    border-right: 1px solid #fde68a;
+    border-bottom: 1px solid #fde68a;
+  }
+  .calendar-month-cell.muted { background: #fafafa; }
+  .calendar-month-cell.today { background: #fffaf2; }
+  .calendar-month-number {
+    display: inline-flex;
+    width: 24px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+    color: #6b7280;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 50%;
+  }
+  .calendar-month-cell.today .calendar-month-number {
+    color: #fff;
+    background: #be185d;
+  }
+  .calendar-month-more {
+    color: #9d174d;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 4px;
+  }
+  .calendar-day-view {
+    min-width: 420px;
+    border: 1px solid #fde68a;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .calendar-day-title {
+    padding: 12px 14px;
+    color: #9d174d;
+    background: #fffbf0;
+    border-bottom: 1px solid #fde68a;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .calendar-day-row {
+    display: grid;
+    grid-template-columns: 65px 1fr;
+    min-height: 62px;
+    border-bottom: 1px solid #fef3c7;
+  }
+  .calendar-day-row:last-child { border-bottom: 0; }
+  .calendar-day-row .calendar-time-label { height: auto; min-height: 62px; }
+  .calendar-day-slot {
+    min-height: 62px;
+    padding: 7px 10px;
+    background: #fff;
+  }
+  @media (max-width: 640px) {
+    .calendar-week-grid { min-width: 600px; }
+    .calendar-month-grid { min-width: 620px; }
+    .calendar-day-view { min-width: 360px; }
+  }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+  const bookings = {{ calendar_appointments | tojson }};
+  const today = '{{ calendar_today }}';
+  const calendar = document.getElementById('booking-calendar');
+  const label = document.getElementById('calendar-range-label');
+  let currentDate = parseDate(today);
+  let view = 'day';
+
+  function parseDate(value) {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  function dateKey(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  function addDays(date, amount) {
+    const result = new Date(date);
+    result.setDate(result.getDate() + amount);
+    return result;
+  }
+  function startOfWeek(date) {
+    const result = new Date(date);
+    const day = result.getDay();
+    result.setDate(result.getDate() - (day === 0 ? 6 : day - 1));
+    return result;
+  }
+  function formatDate(date, options) {
+    return date.toLocaleDateString(undefined, options);
+  }
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;'
+    }[char]));
+  }
+  function eventClass(booking) {
+    const status = String(booking.status || '').toLowerCase();
+    if (status.includes('pending')) return 'pending';
+    if (['confirmed', 'booked', 'scheduled'].some(item => status.includes(item))) return '';
+    return 'other';
+  }
+  function eventHtml(booking) {
+    const time = escapeHtml(booking.time || 'Time not set');
+    const name = escapeHtml(booking.name || 'Guest');
+    const service = escapeHtml(booking.service || 'Booking');
+    const staff = booking.staff_name ? ` · ${escapeHtml(booking.staff_name)}` : '';
+    return `<div class="calendar-event ${eventClass(booking)}" title="${name} — ${service}${staff}">
+      <strong>${time} · ${name}</strong><small>${service}${staff}</small>
+    </div>`;
+  }
+  function bookingsFor(date) {
+    const key = typeof date === 'string' ? date : dateKey(date);
+    return bookings.filter(booking => booking.date === key)
+      .sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')));
+  }
+  function renderDay() {
+    const key = dateKey(currentDate);
+    const dayBookings = bookingsFor(key);
+    label.textContent = formatDate(currentDate, { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+    const hours = [];
+    for (let hour = 8; hour <= 20; hour++) hours.push(hour);
+    calendar.innerHTML = `<div class="calendar-day-view">
+      <div class="calendar-day-title">
+        ${formatDate(currentDate, { weekday:'long', month:'long', day:'numeric' })}
+        <span class="text-xs font-normal text-gray-400 ml-2">${dayBookings.length} booking${dayBookings.length === 1 ? '' : 's'}</span>
+      </div>
+      ${hours.map(hour => {
+        const prefix = String(hour).padStart(2, '0');
+        const events = dayBookings.filter(booking => String(booking.time || '').startsWith(prefix));
+        const timeLabel = `${hour > 12 ? hour - 12 : hour}${hour >= 12 ? ' PM' : ' AM'}`;
+        return `<div class="calendar-day-row">
+          <div class="calendar-time-label">${timeLabel}</div>
+          <div class="calendar-day-slot">${events.map(eventHtml).join('')}</div>
+        </div>`;
+      }).join('')}
+      ${dayBookings.filter(booking => !/^(08|09|1[0-9]|20):/.test(String(booking.time || '')))
+        .map(eventHtml).join('')}
+    </div>`;
+  }
+  function renderWeek() {
+    const weekStart = startOfWeek(currentDate);
+    const week = Array.from({length:7}, (_, index) => addDays(weekStart, index));
+    label.textContent = `${formatDate(week[0], { month:'short', day:'numeric' })} – ${formatDate(week[6], { month:'short', day:'numeric', year:'numeric' })}`;
+    const head = `<div></div>${week.map(date => `<div class="calendar-week-head ${dateKey(date) === today ? 'today' : ''}">
+      <span class="weekday">${formatDate(date, { weekday:'short' })}</span>
+      <span class="day-number">${date.getDate()}</span>
+    </div>`).join('')}`;
+    const rows = [];
+    for (let hour = 8; hour <= 20; hour++) {
+      const prefix = String(hour).padStart(2, '0');
+      rows.push(`<div class="calendar-time-label">${hour > 12 ? hour - 12 : hour}${hour >= 12 ? ' PM' : ' AM'}</div>`);
+      week.forEach(date => {
+        const events = bookingsFor(date).filter(booking => String(booking.time || '').startsWith(prefix));
+        rows.push(`<div class="calendar-day-column ${dateKey(date) === today ? 'today' : ''}">${events.map(eventHtml).join('')}</div>`);
+      });
+    }
+    calendar.innerHTML = `<div class="calendar-week-grid">${head}${rows.join('')}</div>`;
+  }
+  function renderMonth() {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const first = new Date(year, month, 1);
+    const gridStart = startOfWeek(first);
+    const days = Array.from({length:42}, (_, index) => addDays(gridStart, index));
+    label.textContent = formatDate(currentDate, { month:'long', year:'numeric' });
+    const weekdays = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+      .map(day => `<div class="calendar-month-weekday">${day}</div>`).join('');
+    const cells = days.map(date => {
+      const dayBookings = bookingsFor(date);
+      const inMonth = date.getMonth() === month;
+      const visible = dayBookings.slice(0, 3).map(eventHtml).join('');
+      const more = dayBookings.length > 3 ? `<div class="calendar-month-more">+${dayBookings.length - 3} more</div>` : '';
+      return `<div class="calendar-month-cell ${inMonth ? '' : 'muted'} ${dateKey(date) === today ? 'today' : ''}">
+        <div class="calendar-month-number">${date.getDate()}</div>${visible}${more}
+      </div>`;
+    }).join('');
+    calendar.innerHTML = `<div class="calendar-month-grid">${weekdays}${cells}</div>`;
+  }
+  function render() {
+    document.querySelectorAll('[data-calendar-view]').forEach(button => {
+      button.classList.toggle('active', button.dataset.calendarView === view);
+    });
+    if (view === 'day') renderDay();
+    else if (view === 'week') renderWeek();
+    else renderMonth();
+  }
+  document.querySelectorAll('[data-calendar-view]').forEach(button => {
+    button.addEventListener('click', () => { view = button.dataset.calendarView; render(); });
+  });
+  document.getElementById('calendar-today').addEventListener('click', () => {
+    currentDate = parseDate(today); render();
+  });
+  document.getElementById('calendar-prev').addEventListener('click', () => {
+    if (view === 'day') currentDate = addDays(currentDate, -1);
+    else if (view === 'week') currentDate = addDays(currentDate, -7);
+    else currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+    render();
+  });
+  document.getElementById('calendar-next').addEventListener('click', () => {
+    if (view === 'day') currentDate = addDays(currentDate, 1);
+    else if (view === 'week') currentDate = addDays(currentDate, 7);
+    else currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+    render();
+  });
+  render();
+})();
+</script>
+{% endblock %}
