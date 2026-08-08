@@ -1,9 +1,142 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu, Notification } = require('electron');
 const path  = require('path');
 const http  = require('http');
 const { spawn } = require('child_process');
+
+// ─── Auto-updater ─────────────────────────────────────────────────────────────
+
+/**
+ * How often (ms) to re-check for updates after the initial launch check.
+ * Default: every 4 hours.
+ */
+const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
+
+/**
+ * Set up electron-updater for silent background updates.
+ * Downloads happen automatically; the user is notified only when a restart
+ * is required to apply the installed update.
+ *
+ * This function is a no-op in development (app.isPackaged === false) so that
+ * the dev workflow is unaffected.
+ */
+function setupAutoUpdater() {
+  if (!app.isPackaged) {
+    console.log('[updater] Skipping auto-update setup in development mode.');
+    return;
+  }
+
+  let { autoUpdater } = require('electron-updater');
+
+  // Silent downloads — never interrupt the user
+  autoUpdater.autoDownload    = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.logger = {
+    info:  (msg) => console.log(`[updater] ${msg}`),
+    warn:  (msg) => console.warn(`[updater] ${msg}`),
+    error: (msg) => console.error(`[updater] ${msg}`),
+    debug: (msg) => console.log(`[updater] ${msg}`),
+  };
+
+  autoUpdater.on('checking-for-update', () => {
+    console.log('[updater] Checking for update…');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    console.log(`[updater] Update available: ${info.version} — downloading in background…`);
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    console.log('[updater] App is up to date.');
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    console.log(
+      `[updater] Download progress: ${Math.round(progress.percent)}% ` +
+      `(${Math.round(progress.bytesPerSecond / 1024)} KB/s)`,
+    );
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log(`[updater] Update ${info.version} downloaded — will apply on next restart.`);
+    showUpdateReadyNotification(info.version);
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error(`[updater] Error: ${err.message}`);
+  });
+
+  // Initial check on launch (slight delay so the app finishes loading first)
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.error(`[updater] checkForUpdates error: ${err.message}`);
+    });
+  }, 10_000);
+
+  // Periodic re-check
+  setInterval(() => {
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.error(`[updater] Periodic checkForUpdates error: ${err.message}`);
+    });
+  }, UPDATE_CHECK_INTERVAL_MS);
+}
+
+/**
+ * Show a subtle OS notification telling the user a restart will apply the
+ * downloaded update. Clicking the notification triggers a restart.
+ */
+function showUpdateReadyNotification(version) {
+  if (!Notification.isSupported()) return;
+
+  const notif = new Notification({
+    title: 'Update ready',
+    body:  `Version ${version} has been downloaded. Restart the app to apply it.`,
+    silent: true,
+  });
+
+  notif.on('click', () => {
+    const { autoUpdater } = require('electron-updater');
+    autoUpdater.quitAndInstall(false, true);
+  });
+
+  notif.show();
+
+  // Also offer a dialog if the main window is open
+  if (mainWindow) {
+    mainWindow.webContents.executeJavaScript(`
+      (function () {
+        const banner = document.createElement('div');
+        banner.id = 'updater-banner';
+        banner.style.cssText = [
+          'position:fixed','bottom:0','left:0','right:0','z-index:99999',
+          'background:#1e293b','color:#f8fafc','font-size:13px',
+          'padding:10px 16px','display:flex','align-items:center','gap:12px',
+          'border-top:1px solid #334155',
+        ].join(';');
+        banner.innerHTML =
+          '<span>✦ Update ready — <strong>restart to apply v${version}</strong></span>' +
+          '<button onclick="window.__restartForUpdate()" style="' +
+            'margin-left:auto;padding:4px 14px;border-radius:6px;' +
+            'background:#3b82f6;color:#fff;border:none;cursor:pointer;font-size:12px' +
+          '">Restart now</button>' +
+          '<button onclick="document.getElementById(\\\'updater-banner\\\').remove()" style="' +
+            'padding:4px 10px;border-radius:6px;background:transparent;' +
+            'color:#94a3b8;border:1px solid #475569;cursor:pointer;font-size:12px' +
+          '">Later</button>';
+        document.body.appendChild(banner);
+      })();
+    `).catch(() => {});
+  }
+}
+
+// IPC handler so the renderer can trigger a restart-to-update
+ipcMain.handle('restart-for-update', () => {
+  if (!app.isPackaged) return;
+  const { autoUpdater } = require('electron-updater');
+  autoUpdater.quitAndInstall(false, true);
+});
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -313,6 +446,9 @@ ipcMain.handle('get-flask-url', () => FLASK_URL);
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
+  // Set up silent background updates (packaged builds only)
+  setupAutoUpdater();
+
   // Show the loading screen immediately
   createLoadingWindow();
 

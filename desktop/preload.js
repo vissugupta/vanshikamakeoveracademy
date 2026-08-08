@@ -10,4 +10,11 @@ contextBridge.exposeInMainWorld('desktopBridge', {
 
   /** Platform identifier so the UI can adapt if needed */
   platform: process.platform,
+
+  /** Trigger a quit-and-install cycle when an update has been downloaded */
+  restartForUpdate: () => ipcRenderer.invoke('restart-for-update'),
 });
+
+// Make restartForUpdate available as a plain global so the injected banner
+// button (which can't use contextBridge) can call it directly.
+window.__restartForUpdate = () => ipcRenderer.invoke('restart-for-update');
