@@ -1,0 +1,300 @@
+{% extends "admin_base.html" %}
+{% block title %}Messaging & Notifications — {{ tenant.name if tenant else 'Salon' }}{% endblock %}
+{% block page_title %}Messaging &amp; Notifications{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+
+  <!-- Header -->
+  <div class="flex items-center gap-3 mb-2">
+    <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+         style="background:linear-gradient(135deg,#a07840,#d4af37);">
+      <i class="fa-solid fa-bell text-sm" style="color:#0a0a0a;"></i>
+    </div>
+    <div>
+      <h1 class="font-display text-xl font-bold" style="color:#f5f0e8;">Messaging &amp; Notifications</h1>
+      <p class="text-xs" style="color:#6e6058;">Enter your credentials to enable email, SMS, and WhatsApp alerts. Passwords are stored encrypted.</p>
+    </div>
+  </div>
+
+  <form method="POST" action="{{ url_for('admin_messaging') }}" id="messaging-form">
+
+    <!-- ── Gmail ─────────────────────────────────────────────────── -->
+    <div class="stat-card space-y-4">
+      <div class="ornament-line mb-1">
+        <i class="fa-solid fa-envelope mr-1"></i> Email via Gmail
+      </div>
+      <p class="text-xs" style="color:#6e6058;">Used for booking confirmations, OTP emails, and owner alerts.</p>
+
+      <div>
+        <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">Gmail Address</label>
+        <input type="email" name="gmail_user"
+               value="{{ cred_status.gmail_user }}"
+               placeholder="yourname@gmail.com"
+               class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+               style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">
+          Gmail App Password
+          {% if cred_status.gmail_password %}
+          <span class="ml-2 badge badge-green text-xs">● Saved</span>
+          {% endif %}
+        </label>
+        <input type="password" name="gmail_password"
+               placeholder="{{ '●●●●●●●●●●●● (leave blank to keep current)' if cred_status.gmail_password else 'Google Account → Security → App Passwords' }}"
+               autocomplete="new-password"
+               class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+               style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+        <p class="text-xs mt-1" style="color:#5e5248;">
+          Generate at <span style="color:#c9a96e;">myaccount.google.com → Security → 2-Step Verification → App Passwords</span>
+        </p>
+      </div>
+
+      <button type="button"
+              onclick="testChannel('email', this)"
+              class="btn-gold rounded-xl px-5 py-2 text-sm flex items-center gap-2">
+        <i class="fa-solid fa-paper-plane"></i> Send Test Email to Owner
+      </button>
+    </div>
+
+    <!-- ── Twilio SMS ─────────────────────────────────────────────── -->
+    <div class="stat-card space-y-4">
+      <div class="ornament-line mb-1">
+        <i class="fa-solid fa-comment-sms mr-1"></i> SMS via Twilio
+      </div>
+      <p class="text-xs" style="color:#6e6058;">Sends a booking alert SMS to the salon owner.</p>
+
+      <div class="grid grid-cols-1 gap-3">
+        <div>
+          <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">
+            Account SID
+            {% if cred_status.twilio_sid %}
+            <span class="ml-2 badge badge-green text-xs">● Saved</span>
+            {% endif %}
+          </label>
+          <input type="password" name="twilio_sid"
+                 placeholder="{{ '●●●●●●●●●●●● (leave blank to keep current)' if cred_status.twilio_sid else 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' }}"
+                 autocomplete="new-password"
+                 class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+                 style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">
+            Auth Token
+            {% if cred_status.twilio_token %}
+            <span class="ml-2 badge badge-green text-xs">● Saved</span>
+            {% endif %}
+          </label>
+          <input type="password" name="twilio_token"
+                 placeholder="{{ '●●●●●●●●●●●● (leave blank to keep current)' if cred_status.twilio_token else 'Your Twilio Auth Token' }}"
+                 autocomplete="new-password"
+                 class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+                 style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">Twilio From Number</label>
+          <input type="text" name="twilio_number"
+                 value="{{ cred_status.twilio_number }}"
+                 placeholder="+14155551234"
+                 class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+                 style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+        </div>
+      </div>
+
+      <button type="button"
+              onclick="testChannel('sms', this)"
+              class="btn-gold rounded-xl px-5 py-2 text-sm flex items-center gap-2">
+        <i class="fa-solid fa-comment-sms"></i> Send Test SMS to Owner
+      </button>
+    </div>
+
+    <!-- ── WhatsApp ───────────────────────────────────────────────── -->
+    <div class="stat-card space-y-4">
+      <div class="ornament-line mb-1">
+        <i class="fa-brands fa-whatsapp mr-1"></i> WhatsApp via Meta Cloud API
+      </div>
+      <p class="text-xs" style="color:#6e6058;">Used for OTP delivery, booking confirmations, invoice receipts, and campaigns.</p>
+
+      <div class="grid grid-cols-1 gap-3">
+        <div>
+          <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">
+            Access Token
+            {% if cred_status.whatsapp_token %}
+            <span class="ml-2 badge badge-green text-xs">● Saved</span>
+            {% endif %}
+          </label>
+          <input type="password" name="whatsapp_token"
+                 placeholder="{{ '●●●●●●●●●●●● (leave blank to keep current)' if cred_status.whatsapp_token else 'EAAxxxxxxxx… (Meta developer token)' }}"
+                 autocomplete="new-password"
+                 class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+                 style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">Phone Number ID</label>
+          <input type="text" name="whatsapp_phone_id"
+                 value="{{ cred_status.whatsapp_phone_id }}"
+                 placeholder="123456789012345"
+                 class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+                 style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">OTP Template Name</label>
+          <input type="text" name="whatsapp_otp_template"
+                 value="{{ cred_status.whatsapp_otp_template or 'vanshika_otp' }}"
+                 placeholder="vanshika_otp"
+                 class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+                 style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+          <p class="text-xs mt-1" style="color:#5e5248;">The approved Meta template name for OTP messages. Default: <code style="color:#c9a96e;">vanshika_otp</code></p>
+        </div>
+      </div>
+
+      <div class="flex items-end gap-3">
+        <div class="flex-1">
+          <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">Test Phone Number (with country code)</label>
+          <input type="text" id="wa-test-phone"
+                 placeholder="919582206858"
+                 class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+                 style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+        </div>
+        <button type="button"
+                onclick="testChannel('whatsapp', this)"
+                class="btn-gold rounded-xl px-5 py-2 text-sm flex items-center gap-2 flex-shrink-0">
+          <i class="fa-brands fa-whatsapp"></i> Test
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Fast2SMS ───────────────────────────────────────────────── -->
+    <div class="stat-card space-y-4">
+      <div class="ornament-line mb-1">
+        <i class="fa-solid fa-mobile-screen-button mr-1"></i> Customer OTP via Fast2SMS
+      </div>
+      <p class="text-xs" style="color:#6e6058;">Sends booking verification OTPs to Indian customer mobiles.</p>
+
+      <div>
+        <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">
+          Fast2SMS API Key
+          {% if cred_status.fast2sms_key %}
+          <span class="ml-2 badge badge-green text-xs">● Saved</span>
+          {% endif %}
+        </label>
+        <input type="password" name="fast2sms_key"
+               placeholder="{{ '●●●●●●●●●●●● (leave blank to keep current)' if cred_status.fast2sms_key else 'Your Fast2SMS API key from fast2sms.com' }}"
+               autocomplete="new-password"
+               class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+               style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+      </div>
+
+      <div class="flex items-end gap-3">
+        <div class="flex-1">
+          <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">Test Mobile (10 digits, no country code)</label>
+          <input type="text" id="f2s-test-phone"
+                 placeholder="9876543210"
+                 maxlength="10"
+                 class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+                 style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+        </div>
+        <button type="button"
+                onclick="testChannel('fast2sms', this)"
+                class="btn-gold rounded-xl px-5 py-2 text-sm flex items-center gap-2 flex-shrink-0">
+          <i class="fa-solid fa-paper-plane"></i> Test OTP
+        </button>
+      </div>
+    </div>
+
+    <!-- Save button -->
+    <div class="flex justify-end gap-3 pt-2">
+      <button type="submit"
+              class="btn-gold rounded-xl px-8 py-3 text-sm font-bold flex items-center gap-2">
+        <i class="fa-solid fa-floppy-disk"></i> Save All Credentials
+      </button>
+    </div>
+
+  </form>
+
+  <!-- Test result toast -->
+  <div id="test-toast" class="hidden fixed bottom-6 right-6 z-50 rounded-2xl px-5 py-4 text-sm font-medium shadow-2xl max-w-sm"
+       style="border:1px solid rgba(201,169,110,.3);">
+    <div class="flex items-start gap-3">
+      <i id="toast-icon" class="fa-solid fa-circle-check mt-0.5 flex-shrink-0"></i>
+      <span id="toast-msg"></span>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Collect live credential values from the current form so the test endpoint
+// can use them directly — no prior save required.
+function buildTestBody(channel) {
+  const fd = new FormData();
+
+  function addField(name) {
+    const el = document.querySelector(`[name="${name}"]`);
+    if (el && el.value.trim()) fd.append(name, el.value.trim());
+  }
+
+  if (channel === 'email') {
+    addField('gmail_user');
+    addField('gmail_password');
+  } else if (channel === 'sms') {
+    addField('twilio_sid');
+    addField('twilio_token');
+    addField('twilio_number');
+  } else if (channel === 'whatsapp') {
+    addField('whatsapp_token');
+    addField('whatsapp_phone_id');
+    const phone = document.getElementById('wa-test-phone').value.trim();
+    if (phone) fd.append('test_phone', phone);
+  } else if (channel === 'fast2sms') {
+    addField('fast2sms_key');
+    const phone = document.getElementById('f2s-test-phone').value.trim();
+    if (phone) fd.append('test_phone', phone);
+  }
+  return fd;
+}
+
+async function testChannel(channel, btn) {
+  const origHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending…';
+
+  try {
+    const resp = await fetch(`/admin/messaging/test/${channel}`, {
+      method: 'POST',
+      body: buildTestBody(channel),
+    });
+    const data = await resp.json();
+    showToast(data.ok, data.message);
+  } catch (e) {
+    showToast(false, 'Network error — please try again.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origHtml;
+  }
+}
+
+function showToast(ok, message) {
+  const toast = document.getElementById('test-toast');
+  const icon  = document.getElementById('toast-icon');
+  const msg   = document.getElementById('toast-msg');
+  msg.textContent = message;
+  if (ok) {
+    toast.style.background = '#0d1f14';
+    toast.style.color = '#6ee7b7';
+    icon.className = 'fa-solid fa-circle-check mt-0.5 flex-shrink-0';
+  } else {
+    toast.style.background = '#1f0d0d';
+    toast.style.color = '#fca5a5';
+    icon.className = 'fa-solid fa-circle-exclamation mt-0.5 flex-shrink-0';
+  }
+  toast.classList.remove('hidden');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => toast.classList.add('hidden'), 5000);
+}
+</script>
+{% endblock %}

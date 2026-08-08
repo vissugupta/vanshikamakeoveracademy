@@ -2,41 +2,221 @@
 Vanshika Makeover Academy — Notification helpers
 Sends email + SMS to the salon owner when a booking is made.
 
-Required Replit Secrets:
-  GMAIL_APP_PASSWORD   — Gmail App Password (Google Account → Security → App Passwords)
-  TWILIO_ACCOUNT_SID   — From console.twilio.com (Account SID)
-  TWILIO_AUTH_TOKEN    — From console.twilio.com (Auth Token)
-  TWILIO_FROM_NUMBER   — Your Twilio number, e.g. +14155551234
+Credentials are loaded from the messaging_credentials DB table (per-tenant),
+falling back to environment variables for backward compatibility.
+
+Encryption at rest:
+  Each credential is encrypted with a unique random 32-byte salt, a key derived
+  via PBKDF2-HMAC-SHA256(SESSION_SECRET, salt, 100 000 iterations), and
+  authenticated with HMAC-SHA256 before base64 storage.  SESSION_SECRET *must*
+  be set in the environment; the app will refuse to save credentials without it.
 """
 
 import os
+import hmac as _hmac
+import hashlib
+import base64
+import sqlite3
 import smtplib
 import logging
+import time
 import requests
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-OWNER_EMAIL = "info.vanshikamakeoveracademy@gmail.com"
-OWNER_PHONE = "+919582206858"
+# ─── DB path (mirrors app.py logic) ──────────────────────────────────────────
+
+_APP_DIR  = os.path.dirname(__file__)
+_DATA_DIR = os.environ.get('SALON_DATA_DIR', '')
+_DB_PATH  = os.path.join(_DATA_DIR or _APP_DIR, 'salon.db')
+
+
+# ─── Credential encryption ────────────────────────────────────────────────────
+
+_PBKDF2_ITERS = 100_000
+_SALT_LEN     = 32
+_MAC_LEN      = 32
+
+
+def _require_secret() -> bytes:
+    """Return SESSION_SECRET as bytes, raising if it is unset or default."""
+    secret = os.environ.get('SESSION_SECRET', '').strip()
+    if not secret:
+        raise RuntimeError(
+            'SESSION_SECRET environment variable must be set before messaging '
+            'credentials can be stored.  Generate a strong random secret and '
+            'set it in your environment / Replit Secrets.'
+        )
+    return secret.encode('utf-8')
+
+
+def _derive_key(secret: bytes, salt: bytes) -> bytes:
+    return hashlib.pbkdf2_hmac('sha256', secret, salt, _PBKDF2_ITERS)
+
+
+def encrypt_cred(value: str) -> str:
+    """
+    Encrypt a credential for DB storage.
+    Format (base64): salt[32] | hmac[32] | ciphertext
+    Raises RuntimeError if SESSION_SECRET is not set.
+    """
+    if not value:
+        return ''
+    secret     = _require_secret()
+    salt       = os.urandom(_SALT_LEN)
+    key        = _derive_key(secret, salt)
+    data       = value.encode('utf-8')
+    # Counter-mode keystream from SHA-256
+    stream = b''
+    ctr = 0
+    while len(stream) < len(data):
+        stream += hashlib.sha256(key + ctr.to_bytes(4, 'big')).digest()
+        ctr += 1
+    ciphertext = bytes(a ^ b for a, b in zip(data, stream[:len(data)]))
+    mac = _hmac.new(key, salt + ciphertext, 'sha256').digest()
+    return base64.b64encode(salt + mac + ciphertext).decode('ascii')
+
+
+def decrypt_cred(value: str) -> str:
+    """
+    Decrypt a stored credential.  Returns '' on any failure (wrong key, tampered
+    data, or missing SESSION_SECRET).
+    """
+    if not value:
+        return ''
+    try:
+        secret = _require_secret()
+        raw    = base64.b64decode(value.encode('ascii'))
+        if len(raw) < _SALT_LEN + _MAC_LEN:
+            return ''
+        salt       = raw[:_SALT_LEN]
+        mac_stored = raw[_SALT_LEN:_SALT_LEN + _MAC_LEN]
+        ciphertext = raw[_SALT_LEN + _MAC_LEN:]
+        key        = _derive_key(secret, salt)
+        mac_calc   = _hmac.new(key, salt + ciphertext, 'sha256').digest()
+        if not _hmac.compare_digest(mac_stored, mac_calc):
+            logging.error(
+                '[Notify] Credential MAC mismatch — SESSION_SECRET may have '
+                'changed.  Re-enter credentials in Admin → Messaging.'
+            )
+            return ''
+        stream = b''
+        ctr = 0
+        while len(stream) < len(ciphertext):
+            stream += hashlib.sha256(key + ctr.to_bytes(4, 'big')).digest()
+            ctr += 1
+        return bytes(a ^ b for a, b in zip(ciphertext, stream[:len(ciphertext)])).decode('utf-8')
+    except RuntimeError:
+        logging.warning('[Notify] SESSION_SECRET not set — cannot decrypt credential')
+        return ''
+    except Exception as exc:
+        logging.error(f'[Notify] Credential decryption error: {exc}')
+        return ''
+
+
+# ─── Credential loader with in-memory cache ───────────────────────────────────
+
+_creds_cache: dict | None = None
+_creds_cache_ts: float = 0.0
+_CREDS_CACHE_TTL: float = 300.0   # 5 minutes
+
+
+def invalidate_creds_cache():
+    """Call after saving new credentials so the next send reloads them."""
+    global _creds_cache, _creds_cache_ts
+    _creds_cache    = None
+    _creds_cache_ts = 0.0
+
+
+def get_messaging_creds() -> dict:
+    """
+    Load messaging credentials from the DB (id=1 row), decrypting stored values.
+    Falls back to environment variables for any credential not set in the DB.
+    Also loads owner_email / owner_phone from salon_settings for alert routing.
+    Results are cached for 5 minutes to amortise PBKDF2 cost.
+    """
+    global _creds_cache, _creds_cache_ts
+    now = time.monotonic()
+    if _creds_cache is not None and (now - _creds_cache_ts) < _CREDS_CACHE_TTL:
+        return _creds_cache
+
+    # Defaults from environment variables
+    creds: dict = {
+        'owner_email':           os.environ.get('OWNER_EMAIL', 'info.vanshikamakeoveracademy@gmail.com'),
+        'owner_phone':           os.environ.get('OWNER_PHONE', '+919582206858'),
+        'gmail_user':            os.environ.get('GMAIL_USER', 'info.vanshikamakeoveracademy@gmail.com'),
+        'gmail_password':        ''.join(os.environ.get('GMAIL_APP_PASSWORD', '').split()),
+        'twilio_sid':            os.environ.get('TWILIO_ACCOUNT_SID', ''),
+        'twilio_token':          os.environ.get('TWILIO_AUTH_TOKEN', ''),
+        'twilio_number':         os.environ.get('TWILIO_FROM_NUMBER', ''),
+        'whatsapp_token':        os.environ.get('WHATSAPP_ACCESS_TOKEN', ''),
+        'whatsapp_phone_id':     os.environ.get('WHATSAPP_PHONE_NUMBER_ID', ''),
+        'fast2sms_key':          os.environ.get('FAST2SMS_API_KEY', ''),
+        'whatsapp_otp_template': os.environ.get('WHATSAPP_OTP_TEMPLATE', 'vanshika_otp'),
+    }
+
+    try:
+        con = sqlite3.connect(_DB_PATH)
+        con.row_factory = sqlite3.Row
+
+        # Owner contact details from salon_settings
+        salon = con.execute('SELECT email, phone FROM salon_settings WHERE id=1').fetchone()
+        if salon:
+            if salon['email']:
+                creds['owner_email'] = salon['email']
+            if salon['phone']:
+                creds['owner_phone'] = salon['phone']
+
+        # Messaging credentials
+        row = con.execute('SELECT * FROM messaging_credentials WHERE id=1').fetchone()
+        con.close()
+
+        if row:
+            if row['gmail_user']:
+                creds['gmail_user'] = row['gmail_user']
+            if row['gmail_password']:
+                creds['gmail_password'] = decrypt_cred(row['gmail_password'])
+            if row['twilio_sid']:
+                creds['twilio_sid'] = decrypt_cred(row['twilio_sid'])
+            if row['twilio_token']:
+                creds['twilio_token'] = decrypt_cred(row['twilio_token'])
+            if row['twilio_number']:
+                creds['twilio_number'] = row['twilio_number']
+            if row['whatsapp_token']:
+                creds['whatsapp_token'] = decrypt_cred(row['whatsapp_token'])
+            if row['whatsapp_phone_id']:
+                creds['whatsapp_phone_id'] = row['whatsapp_phone_id']
+            if row['fast2sms_key']:
+                creds['fast2sms_key'] = decrypt_cred(row['fast2sms_key'])
+            if row['whatsapp_otp_template']:
+                creds['whatsapp_otp_template'] = row['whatsapp_otp_template']
+
+    except Exception as exc:
+        logging.debug(f'[Notify] Could not load DB messaging creds: {exc}')
+
+    _creds_cache    = creds
+    _creds_cache_ts = now
+    return creds
 
 
 # ─── Email via Gmail SMTP ─────────────────────────────────────────────────────
 
-def send_booking_email(name, phone, service, date, time, customer_email=""):
+def send_booking_email(name, phone, service, date, time, customer_email="", _creds=None):
     """Send a rich HTML email to the salon owner for every new booking."""
-    # Gmail displays app passwords in grouped blocks; ignore copied spaces.
-    gmail_pass = "".join(os.environ.get("GMAIL_APP_PASSWORD", "").split())
-    gmail_user = os.environ.get("GMAIL_USER", OWNER_EMAIL)
+    creds      = _creds or get_messaging_creds()
+    gmail_pass = creds['gmail_password']
+    gmail_user = creds['gmail_user']
+    owner_to   = creds['owner_email']
 
     if not gmail_pass:
-        logging.warning("[Notify] GMAIL_APP_PASSWORD not set — email skipped")
+        logging.warning("[Notify] Gmail app password not configured — email skipped")
         return False
 
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = f"\U0001f4c5 New Booking: {name} \u2014 {service}"
         msg["From"]    = f"Vanshika Makeover Academy <{gmail_user}>"
-        msg["To"]      = OWNER_EMAIL
+        msg["To"]      = owner_to
 
         plain = (
             f"New appointment booking received!\n\n"
@@ -114,9 +294,9 @@ def send_booking_email(name, phone, service, date, time, customer_email=""):
             server.ehlo()
             server.starttls()
             server.login(gmail_user, gmail_pass)
-            server.sendmail(gmail_user, OWNER_EMAIL, msg.as_string())
+            server.sendmail(gmail_user, owner_to, msg.as_string())
 
-        logging.info(f"[Notify] Email sent → {OWNER_EMAIL} for booking by {name}")
+        logging.info(f"[Notify] Email sent → {owner_to} for booking by {name}")
         return True
 
     except Exception as exc:
@@ -126,14 +306,16 @@ def send_booking_email(name, phone, service, date, time, customer_email=""):
 
 # ─── SMS via Twilio ───────────────────────────────────────────────────────────
 
-def send_booking_sms(name, phone, service, date, time):
+def send_booking_sms(name, phone, service, date, time, _creds=None):
     """Send an SMS to the salon owner via Twilio."""
-    account_sid = os.environ.get("TWILIO_ACCOUNT_SID", "")
-    auth_token  = os.environ.get("TWILIO_AUTH_TOKEN",  "")
-    from_number = os.environ.get("TWILIO_FROM_NUMBER", "")
+    creds       = _creds or get_messaging_creds()
+    account_sid = creds['twilio_sid']
+    auth_token  = creds['twilio_token']
+    from_number = creds['twilio_number']
+    owner_phone = creds['owner_phone']
 
     if not (account_sid and auth_token and from_number):
-        logging.warning("[Notify] Twilio secrets not set — SMS skipped")
+        logging.warning("[Notify] Twilio credentials not configured — SMS skipped")
         return False
 
     try:
@@ -153,10 +335,10 @@ def send_booking_sms(name, phone, service, date, time):
         message = client.messages.create(
             body=body,
             from_=from_number,
-            to=OWNER_PHONE,
+            to=owner_phone,
         )
 
-        logging.info(f"[Notify] SMS sent → {OWNER_PHONE} (SID: {message.sid})")
+        logging.info(f"[Notify] SMS sent → {owner_phone} (SID: {message.sid})")
         return True
 
     except Exception as exc:
@@ -166,16 +348,17 @@ def send_booking_sms(name, phone, service, date, time):
 
 # ─── WhatsApp via Meta Cloud API ─────────────────────────────────────────────
 
-def _send_whatsapp(payload):
+def _send_whatsapp(payload, _creds=None):
     """
     Low-level POST to Meta WhatsApp Cloud API.
-    Returns (True, sid) on success or (False, error_message) on failure.
+    Returns (True, msg_id) on success or (False, error_message) on failure.
     """
-    token    = os.environ.get("WHATSAPP_ACCESS_TOKEN", "")
-    phone_id = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "")
+    creds    = _creds or get_messaging_creds()
+    token    = creds['whatsapp_token']
+    phone_id = creds['whatsapp_phone_id']
 
     if not (token and phone_id):
-        return False, "WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID not set"
+        return False, "WhatsApp token or phone ID not configured"
 
     try:
         import requests as req
@@ -200,15 +383,10 @@ def _wa_to(phone):
     return f"91{p}" if len(p) == 10 else p
 
 
-def send_otp_whatsapp(phone, otp, name):
-    """
-    Send OTP to customer via WhatsApp using Meta Cloud API.
-    Uses the 'vanshika_otp' utility template.
-
-    Template body must contain exactly one variable {{1}} = the OTP code:
-      "{{1}} is your Vanshika Makeover Academy booking OTP. Valid for 10 minutes. Do not share this code."
-    """
-    template_name = os.environ.get("WHATSAPP_OTP_TEMPLATE", "vanshika_otp")
+def send_otp_whatsapp(phone, otp, name, _creds=None):
+    """Send OTP to customer via WhatsApp using Meta Cloud API."""
+    creds         = _creds or get_messaging_creds()
+    template_name = creds['whatsapp_otp_template']
     payload = {
         "messaging_product": "whatsapp",
         "to": _wa_to(phone),
@@ -224,7 +402,7 @@ def send_otp_whatsapp(phone, otp, name):
             ],
         },
     }
-    ok, result = _send_whatsapp(payload)
+    ok, result = _send_whatsapp(payload, _creds=creds)
     if ok:
         logging.info(f"[Notify] WhatsApp OTP sent → +91{phone} (id: {result})")
     else:
@@ -232,11 +410,9 @@ def send_otp_whatsapp(phone, otp, name):
     return ok
 
 
-def send_booking_confirmation_whatsapp(phone, name, service, date, appt_time, booking_id):
-    """
-    Send booking confirmation to customer via WhatsApp (freeform text).
-    Works within 24-hour customer-service window after OTP exchange.
-    """
+def send_booking_confirmation_whatsapp(phone, name, service, date, appt_time, booking_id, _creds=None):
+    """Send booking confirmation to customer via WhatsApp (freeform text)."""
+    creds = _creds or get_messaging_creds()
     payload = {
         "messaging_product": "whatsapp",
         "to": _wa_to(phone),
@@ -254,7 +430,7 @@ def send_booking_confirmation_whatsapp(phone, name, service, date, appt_time, bo
             )
         },
     }
-    ok, result = _send_whatsapp(payload)
+    ok, result = _send_whatsapp(payload, _creds=creds)
     if ok:
         logging.info(f"[Notify] WhatsApp confirmation sent → +91{phone} (id: {result})")
     else:
@@ -264,11 +440,13 @@ def send_booking_confirmation_whatsapp(phone, name, service, date, appt_time, bo
 
 # ─── Booking OTP via Fast2SMS ─────────────────────────────────────────────────
 
-def send_booking_otp_sms(phone, otp, name):
+def send_booking_otp_sms(phone, otp, name, _creds=None):
     """Send the booking verification OTP to the customer's mobile via Fast2SMS."""
-    api_key = os.environ.get("FAST2SMS_API_KEY", "")
+    creds   = _creds or get_messaging_creds()
+    api_key = creds['fast2sms_key']
+
     if not api_key:
-        logging.error("[Notify] FAST2SMS_API_KEY not set — booking OTP not sent")
+        logging.error("[Notify] Fast2SMS API key not configured — booking OTP not sent")
         return False
 
     number = "".join(ch for ch in str(phone) if ch.isdigit())
@@ -304,16 +482,16 @@ def send_booking_otp_sms(phone, otp, name):
         return False
 
 
-# ─── Legacy email OTP helper ──────────────────────────────────────────────────
+# ─── OTP email to customer ────────────────────────────────────────────────────
 
-def send_otp_email(customer_email, otp, name, purpose="booking"):
+def send_otp_email(customer_email, otp, name, purpose="booking", _creds=None):
     """Send a booking or customer-login OTP to the customer's email."""
-    # Gmail displays app passwords in grouped blocks; ignore copied spaces.
-    gmail_pass = "".join(os.environ.get("GMAIL_APP_PASSWORD", "").split())
-    gmail_user = os.environ.get("GMAIL_USER", OWNER_EMAIL)
+    creds      = _creds or get_messaging_creds()
+    gmail_pass = creds['gmail_password']
+    gmail_user = creds['gmail_user']
 
     if not gmail_pass:
-        logging.warning("[Notify] GMAIL_APP_PASSWORD not set — OTP email skipped")
+        logging.warning("[Notify] Gmail app password not configured — OTP email skipped")
         return False
 
     try:
@@ -345,9 +523,9 @@ def send_otp_email(customer_email, otp, name, purpose="booking"):
     <h1 style="color:#fbbf24;margin:0;font-size:20px;font-weight:700;font-family:Georgia,serif;">
       Vanshika Makeover Academy
     </h1>
-             <p style="color:#fce7f3;margin:4px 0 0;font-size:11px;letter-spacing:2px;">
-               {('ACCOUNT LOGIN' if is_login else 'BOOKING VERIFICATION')}
-             </p>
+    <p style="color:#fce7f3;margin:4px 0 0;font-size:11px;letter-spacing:2px;">
+      {('ACCOUNT LOGIN' if is_login else 'BOOKING VERIFICATION')}
+    </p>
   </div>
 
   <div style="height:3px;background:linear-gradient(90deg,#92400e,#fbbf24,#d97706,#fbbf24,#92400e);"></div>
@@ -357,8 +535,6 @@ def send_otp_email(customer_email, otp, name, purpose="booking"):
     <p style="color:#6b7280;font-size:13px;margin:0 0 28px;">
        Use the OTP below to {('sign in to your account' if is_login else 'confirm your appointment booking')}.
     </p>
-
-    <!-- OTP Box -->
     <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);
                 border:2px solid #d97706; border-radius:16px;
                 padding:20px; margin-bottom:24px; display:inline-block; min-width:200px;">
@@ -367,7 +543,6 @@ def send_otp_email(customer_email, otp, name, purpose="booking"):
       <div style="font-size:42px;font-weight:900;letter-spacing:12px;color:#92400e;
                   font-family:monospace;">{otp}</div>
     </div>
-
     <p style="color:#9ca3af;font-size:12px;margin:0 0 4px;">Valid for <strong>10 minutes</strong></p>
     <p style="color:#9ca3af;font-size:11px;margin:0;">Do not share this code with anyone.</p>
   </div>
@@ -401,14 +576,14 @@ def send_otp_email(customer_email, otp, name, purpose="booking"):
 
 # ─── Booking confirmation email to customer ───────────────────────────────────
 
-def send_booking_confirmation_email(customer_email, name, phone, service, date, time, booking_id):
+def send_booking_confirmation_email(customer_email, name, phone, service, date, time, booking_id, _creds=None):
     """Send a beautiful booking confirmation email to the customer."""
-    # Gmail displays app passwords in grouped blocks; ignore copied spaces.
-    gmail_pass = "".join(os.environ.get("GMAIL_APP_PASSWORD", "").split())
-    gmail_user = os.environ.get("GMAIL_USER", OWNER_EMAIL)
+    creds      = _creds or get_messaging_creds()
+    gmail_pass = creds['gmail_password']
+    gmail_user = creds['gmail_user']
 
     if not gmail_pass:
-        logging.warning("[Notify] GMAIL_APP_PASSWORD not set — customer confirmation email skipped")
+        logging.warning("[Notify] Gmail app password not configured — customer confirmation email skipped")
         return False
 
     try:
@@ -449,20 +624,14 @@ def send_booking_confirmation_email(customer_email, name, phone, service, date, 
 
   <div style="height:3px;background:linear-gradient(90deg,#92400e,#fbbf24,#d97706,#fbbf24,#92400e);"></div>
 
-  <!-- Booking ID Banner -->
   <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);padding:16px 24px;text-align:center;
               border-bottom:1px solid #fcd34d;">
-    <span style="font-size:11px;color:#92400e;letter-spacing:2px;text-transform:uppercase;font-weight:700;">
-      Booking ID
-    </span>
-    <div style="font-size:24px;font-weight:900;color:#92400e;font-family:monospace;margin-top:4px;">
-      #VMA-{booking_id}
-    </div>
+    <span style="font-size:11px;color:#92400e;letter-spacing:2px;text-transform:uppercase;font-weight:700;">Booking ID</span>
+    <div style="font-size:24px;font-weight:900;color:#92400e;font-family:monospace;margin-top:4px;">#VMA-{booking_id}</div>
   </div>
 
   <div style="padding:24px;">
     <p style="color:#374151;font-size:14px;margin:0 0 20px;">Hi <strong>{name}</strong>, your beauty session is all set! 💅</p>
-
     <table style="width:100%;border-collapse:collapse;font-size:13px;">
       <tr>
         <td style="padding:10px 12px;color:#9ca3af;width:36%;">👤 Name</td>
@@ -514,12 +683,12 @@ def send_booking_confirmation_email(customer_email, name, phone, service, date, 
         return False
 
 
+# ─── Invoice WhatsApp ─────────────────────────────────────────────────────────
+
 def send_invoice_whatsapp(phone, customer_name, invoice_id, items, subtotal,
-                          discount_amount, gst_amount, total, payment_method):
-    """
-    Send a formatted invoice receipt to the customer via WhatsApp freeform text.
-    Works within a 24-hour customer-service window, or if customer messaged first.
-    """
+                          discount_amount, gst_amount, total, payment_method, _creds=None):
+    """Send a formatted invoice receipt to the customer via WhatsApp."""
+    creds = _creds or get_messaging_creds()
     items_text = ""
     for item in items:
         qty_str = f" x{item['qty']}" if item.get('qty', 1) > 1 else ""
@@ -550,7 +719,7 @@ def send_invoice_whatsapp(phone, customer_name, invoice_id, items, subtotal,
         "type": "text",
         "text": {"body": body},
     }
-    ok, result = _send_whatsapp(payload)
+    ok, result = _send_whatsapp(payload, _creds=creds)
     if ok:
         logging.info(f"[Notify] Invoice WhatsApp sent → {phone} (id: {result})")
     else:
@@ -558,18 +727,19 @@ def send_invoice_whatsapp(phone, customer_name, invoice_id, items, subtotal,
     return ok
 
 
-# ─── Combined helper ──────────────────────────────────────────────────────────
+# ─── Campaign / birthday / membership WhatsApp ────────────────────────────────
 
-def send_campaign_whatsapp(phone, customer_name, message_body):
-    """Send a campaign message to a customer with {{customer_name}} merge tag support."""
-    body = message_body.replace('{{customer_name}}', customer_name)
+def send_campaign_whatsapp(phone, customer_name, message_body, _creds=None):
+    """Send a campaign message with {{customer_name}} merge tag support."""
+    creds = _creds or get_messaging_creds()
+    body  = message_body.replace('{{customer_name}}', customer_name)
     payload = {
         "messaging_product": "whatsapp",
         "to": _wa_to(phone),
         "type": "text",
         "text": {"body": body},
     }
-    ok, result = _send_whatsapp(payload)
+    ok, result = _send_whatsapp(payload, _creds=creds)
     if ok:
         logging.info(f"[Campaign] WhatsApp sent → {phone}")
     else:
@@ -577,8 +747,9 @@ def send_campaign_whatsapp(phone, customer_name, message_body):
     return ok, result
 
 
-def send_birthday_whatsapp(phone, customer_name, discount_code=None):
+def send_birthday_whatsapp(phone, customer_name, discount_code=None, _creds=None):
     """Send a birthday greeting with optional discount code via WhatsApp."""
+    creds     = _creds or get_messaging_creds()
     disc_line = f"\n\n🎁 Use code *{discount_code}* for a special birthday discount!" if discount_code else ""
     body = (
         f"👑 *Vanshika Makeover Academy*\n\n"
@@ -592,7 +763,7 @@ def send_birthday_whatsapp(phone, customer_name, discount_code=None):
         "type": "text",
         "text": {"body": body},
     }
-    ok, result = _send_whatsapp(payload)
+    ok, result = _send_whatsapp(payload, _creds=creds)
     if ok:
         logging.info(f"[Birthday] WhatsApp sent → {phone}")
     else:
@@ -600,9 +771,10 @@ def send_birthday_whatsapp(phone, customer_name, discount_code=None):
     return ok, result
 
 
-def send_membership_reminder_whatsapp(phone, customer_name, plan_name, expiry_date):
-    """Send a membership expiry reminder via WhatsApp freeform text."""
-    body = (
+def send_membership_reminder_whatsapp(phone, customer_name, plan_name, expiry_date, _creds=None):
+    """Send a membership expiry reminder via WhatsApp."""
+    creds = _creds or get_messaging_creds()
+    body  = (
         f"👑 *Vanshika Makeover Academy*\n\n"
         f"Hi {customer_name}! 💅\n\n"
         f"Your *{plan_name}* membership is expiring on *{expiry_date}*.\n\n"
@@ -614,7 +786,7 @@ def send_membership_reminder_whatsapp(phone, customer_name, plan_name, expiry_da
         "type": "text",
         "text": {"body": body},
     }
-    ok, result = _send_whatsapp(payload)
+    ok, result = _send_whatsapp(payload, _creds=creds)
     if ok:
         logging.info(f"[Notify] Membership reminder sent → {phone}")
     else:
@@ -628,23 +800,24 @@ def notify_new_booking(name, phone, service, date, time, customer_email=""):
     send_booking_sms(name, phone, service, date, time)
 
 
-# ─── Cancellation email to owner ─────────────────────────────────────────────
+# ─── Cancellation notifications ───────────────────────────────────────────────
 
-def send_cancellation_email(name, phone, service, date, time, booking_id):
+def send_cancellation_email(name, phone, service, date, time, booking_id, _creds=None):
     """Send a cancellation alert email to the salon owner."""
-    # Gmail displays app passwords in grouped blocks; ignore copied spaces.
-    gmail_pass = "".join(os.environ.get("GMAIL_APP_PASSWORD", "").split())
-    gmail_user = os.environ.get("GMAIL_USER", OWNER_EMAIL)
+    creds      = _creds or get_messaging_creds()
+    gmail_pass = creds['gmail_password']
+    gmail_user = creds['gmail_user']
+    owner_to   = creds['owner_email']
 
     if not gmail_pass:
-        logging.warning("[Notify] GMAIL_APP_PASSWORD not set — cancellation email skipped")
+        logging.warning("[Notify] Gmail app password not configured — cancellation email skipped")
         return False
 
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = f"❌ Appointment Cancelled: {name} — {service}"
         msg["From"]    = f"Vanshika Makeover Academy <{gmail_user}>"
-        msg["To"]      = OWNER_EMAIL
+        msg["To"]      = owner_to
 
         plain = (
             f"An appointment has been cancelled by the customer.\n\n"
@@ -676,9 +849,6 @@ def send_cancellation_email(name, phone, service, date, time, booking_id):
   <div style="height:3px;background:linear-gradient(90deg,#92400e,#fbbf24,#d97706,#fbbf24,#92400e);"></div>
 
   <div style="padding:28px 24px;">
-    <p style="color:#374151;font-size:14px;margin:0 0 16px;">
-      The following appointment has been <strong style="color:#dc2626;">cancelled</strong> by the customer via the self-service portal.
-    </p>
     <table style="width:100%;border-collapse:collapse;font-size:14px;">
       <tr>
         <td style="padding:11px 12px;color:#9ca3af;width:38%;">🔖 Booking ID</td>
@@ -707,8 +877,7 @@ def send_cancellation_email(name, phone, service, date, time, booking_id):
     </table>
   </div>
 
-  <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);
-              padding:18px 24px;text-align:center;">
+  <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);padding:18px 24px;text-align:center;">
     <p style="color:#92400e;margin:0;font-size:13px;font-weight:600;">
       👑 Open Admin Dashboard to update your schedule
     </p>
@@ -725,9 +894,9 @@ def send_cancellation_email(name, phone, service, date, time, booking_id):
             server.ehlo()
             server.starttls()
             server.login(gmail_user, gmail_pass)
-            server.sendmail(gmail_user, OWNER_EMAIL, msg.as_string())
+            server.sendmail(gmail_user, owner_to, msg.as_string())
 
-        logging.info(f"[Notify] Cancellation email sent → {OWNER_EMAIL} for booking #{booking_id}")
+        logging.info(f"[Notify] Cancellation email sent → {owner_to} for booking #{booking_id}")
         return True
 
     except Exception as exc:
@@ -735,13 +904,14 @@ def send_cancellation_email(name, phone, service, date, time, booking_id):
         return False
 
 
-def send_cancellation_confirmation_email(customer_email, name, service, date, time, booking_id):
+def send_cancellation_confirmation_email(customer_email, name, service, date, time, booking_id, _creds=None):
     """Send a cancellation confirmation email to the customer."""
-    gmail_pass = os.environ.get("GMAIL_APP_PASSWORD", "")
-    gmail_user = os.environ.get("GMAIL_USER", OWNER_EMAIL)
+    creds      = _creds or get_messaging_creds()
+    gmail_pass = creds['gmail_password']
+    gmail_user = creds['gmail_user']
 
     if not gmail_pass:
-        logging.warning("[Notify] GMAIL_APP_PASSWORD not set — customer cancellation email skipped")
+        logging.warning("[Notify] Gmail app password not configured — customer cancellation email skipped")
         return False
 
     if not customer_email:
@@ -761,7 +931,7 @@ def send_cancellation_confirmation_email(customer_email, name, service, date, ti
             f"Service    : {service}\n"
             f"Date       : {date}\n"
             f"Time       : {time}\n\n"
-            f"We hope to see you again soon! You can rebook anytime at our portal.\n\n"
+            f"We hope to see you again soon!\n\n"
             f"Warm regards,\nVanshika Makeover Academy"
         )
 
@@ -777,29 +947,21 @@ def send_cancellation_confirmation_email(customer_email, name, service, date, ti
     <h1 style="color:#fbbf24;margin:0;font-size:22px;font-weight:700;font-family:Georgia,serif;">
       Appointment Cancelled
     </h1>
-    <p style="color:#fce7f3;margin:6px 0 0;font-size:11px;letter-spacing:2px;">
-      VANSHIKA MAKEOVER ACADEMY
-    </p>
+    <p style="color:#fce7f3;margin:6px 0 0;font-size:11px;letter-spacing:2px;">VANSHIKA MAKEOVER ACADEMY</p>
   </div>
 
   <div style="height:3px;background:linear-gradient(90deg,#92400e,#fbbf24,#d97706,#fbbf24,#92400e);"></div>
 
-  <!-- Booking ID Banner -->
   <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);padding:16px 24px;text-align:center;
               border-bottom:1px solid #fcd34d;">
-    <span style="font-size:11px;color:#92400e;letter-spacing:2px;text-transform:uppercase;font-weight:700;">
-      Booking ID
-    </span>
-    <div style="font-size:24px;font-weight:900;color:#92400e;font-family:monospace;margin-top:4px;">
-      #VMA-{booking_id}
-    </div>
+    <span style="font-size:11px;color:#92400e;letter-spacing:2px;text-transform:uppercase;font-weight:700;">Booking ID</span>
+    <div style="font-size:24px;font-weight:900;color:#92400e;font-family:monospace;margin-top:4px;">#VMA-{booking_id}</div>
   </div>
 
   <div style="padding:28px 24px;">
     <p style="color:#374151;font-size:14px;margin:0 0 16px;">
       Hi <strong>{name}</strong>, your appointment has been successfully cancelled.
     </p>
-
     <table style="width:100%;border-collapse:collapse;font-size:13px;">
       <tr>
         <td style="padding:10px 12px;color:#9ca3af;width:36%;">&#10024; Service</td>
@@ -816,8 +978,7 @@ def send_cancellation_confirmation_email(customer_email, name, service, date, ti
     </table>
   </div>
 
-  <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);
-              padding:18px 24px;text-align:center;">
+  <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);padding:18px 24px;text-align:center;">
     <p style="color:#92400e;margin:0;font-size:13px;font-weight:600;">
       &#128081; We hope to see you again soon — rebook anytime!
     </p>

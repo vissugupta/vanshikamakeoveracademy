@@ -504,6 +504,21 @@ def init_db():
             last_login    TEXT
         )''')
 
+        # ── Per-tenant messaging credentials (encrypted at rest) ─────────────
+        db.execute('''CREATE TABLE IF NOT EXISTS messaging_credentials (
+            id                    INTEGER PRIMARY KEY DEFAULT 1,
+            gmail_user            TEXT    DEFAULT '',
+            gmail_password        TEXT    DEFAULT '',
+            twilio_sid            TEXT    DEFAULT '',
+            twilio_token          TEXT    DEFAULT '',
+            twilio_number         TEXT    DEFAULT '',
+            whatsapp_token        TEXT    DEFAULT '',
+            whatsapp_phone_id     TEXT    DEFAULT '',
+            whatsapp_otp_template TEXT    DEFAULT 'vanshika_otp',
+            fast2sms_key          TEXT    DEFAULT '',
+            updated_at            TEXT    DEFAULT CURRENT_TIMESTAMP
+        )''')
+
         db.commit()
         _migrate_db(db)
         _seed_salon_settings(db)
@@ -4168,6 +4183,160 @@ def customer_loyalty_clear():
     db.commit()
     flash(f'{reserved} reserved points have been returned to your balance.', 'success')
     return redirect(url_for('customer_portal'))
+
+
+# ─── Admin: Messaging & Notifications ────────────────────────────────────────
+
+@app.route('/admin/messaging', methods=['GET', 'POST'])
+@owner_required
+def admin_messaging():
+    from notifications import encrypt_cred, decrypt_cred
+    db = get_db()
+
+    # Ensure the row exists
+    db.execute(
+        'INSERT OR IGNORE INTO messaging_credentials (id) VALUES (1)'
+    )
+    db.commit()
+
+    row = db.execute('SELECT * FROM messaging_credentials WHERE id=1').fetchone()
+
+    if request.method == 'POST':
+        try:
+            def _save(field, encrypted=False):
+                val = request.form.get(field, '').strip()
+                if val:
+                    return encrypt_cred(val) if encrypted else val
+                # Keep existing value if the user left the field blank
+                return row[field] if row else ''
+
+            gmail_user        = request.form.get('gmail_user', '').strip() or (row['gmail_user'] if row else '')
+            gmail_password    = _save('gmail_password',    encrypted=True)
+            twilio_sid        = _save('twilio_sid',        encrypted=True)
+            twilio_token      = _save('twilio_token',      encrypted=True)
+            twilio_number     = request.form.get('twilio_number', '').strip() or (row['twilio_number'] if row else '')
+            whatsapp_token    = _save('whatsapp_token',    encrypted=True)
+            whatsapp_phone_id = request.form.get('whatsapp_phone_id', '').strip() or (row['whatsapp_phone_id'] if row else '')
+            whatsapp_otp_tmpl = request.form.get('whatsapp_otp_template', '').strip() or 'vanshika_otp'
+            fast2sms_key      = _save('fast2sms_key',      encrypted=True)
+        except RuntimeError as exc:
+            flash(str(exc), 'error')
+            return redirect(url_for('admin_messaging'))
+
+        db.execute('''UPDATE messaging_credentials
+                      SET gmail_user=?, gmail_password=?,
+                          twilio_sid=?, twilio_token=?, twilio_number=?,
+                          whatsapp_token=?, whatsapp_phone_id=?, whatsapp_otp_template=?,
+                          fast2sms_key=?, updated_at=CURRENT_TIMESTAMP
+                      WHERE id=1''',
+                   (gmail_user, gmail_password,
+                    twilio_sid, twilio_token, twilio_number,
+                    whatsapp_token, whatsapp_phone_id, whatsapp_otp_tmpl,
+                    fast2sms_key))
+        db.commit()
+
+        # Invalidate the in-process creds cache so next notification uses new values
+        import notifications as _notify_mod
+        _notify_mod.invalidate_creds_cache()
+
+        flash('Messaging credentials saved successfully!', 'success')
+        return redirect(url_for('admin_messaging'))
+
+    # Build a "status" dict for the template (True = credential stored)
+    def _is_set(field):
+        return bool(row and row[field])
+
+    cred_status = {
+        'gmail_user':            row['gmail_user'] if row else '',
+        'gmail_password':        _is_set('gmail_password'),
+        'twilio_sid':            _is_set('twilio_sid'),
+        'twilio_token':          _is_set('twilio_token'),
+        'twilio_number':         row['twilio_number'] if row else '',
+        'whatsapp_token':        _is_set('whatsapp_token'),
+        'whatsapp_phone_id':     row['whatsapp_phone_id'] if row else '',
+        'whatsapp_otp_template': row['whatsapp_otp_template'] if row else 'vanshika_otp',
+        'fast2sms_key':          _is_set('fast2sms_key'),
+    }
+    return render_template('admin_messaging.html', cred_status=cred_status, **get_admin_context())
+
+
+@app.route('/admin/messaging/test/<channel>', methods=['POST'])
+@owner_required
+def admin_messaging_test(channel):
+    """
+    Send a test message on the given channel to verify credentials work.
+
+    The endpoint accepts live credential values from the form so the admin can
+    test before saving.  Any field left blank falls back to the saved DB value
+    (or env var if nothing is in the DB yet).
+    """
+    from notifications import get_messaging_creds, send_booking_email, \
+        send_booking_sms, _send_whatsapp, send_booking_otp_sms
+    import json as _json
+
+    # Build a creds dict: start from DB/env, then override with form values
+    base = get_messaging_creds()
+    creds = dict(base)
+
+    def _f(key):
+        return request.form.get(key, '').strip()
+
+    # Override only with non-empty submitted values
+    for key in ('gmail_user', 'gmail_password', 'twilio_sid', 'twilio_token',
+                'twilio_number', 'whatsapp_token', 'whatsapp_phone_id', 'fast2sms_key'):
+        v = _f(key)
+        if v:
+            creds[key] = v
+
+    ok = False
+    result = 'Unknown channel.'
+
+    if channel == 'email':
+        owner_to = creds.get('owner_email', base['owner_email'])
+        ok = send_booking_email(
+            name='Test Admin', phone='+91 00000 00000',
+            service='Test Service', date='2099-01-01', time='10:00 AM',
+            customer_email='', _creds=creds,
+        )
+        result = (f'Test email sent to {owner_to}.' if ok
+                  else 'Email send failed — check credentials and logs.')
+
+    elif channel == 'sms':
+        owner_phone = creds.get('owner_phone', base['owner_phone'])
+        ok = send_booking_sms(
+            name='Test Admin', phone='+91 00000 00000',
+            service='Test Service', date='2099-01-01', time='10:00 AM',
+            _creds=creds,
+        )
+        result = (f'Test SMS sent to {owner_phone} via Twilio.' if ok
+                  else 'SMS send failed — check Twilio credentials and logs.')
+
+    elif channel == 'whatsapp':
+        test_phone = _f('test_phone')
+        if not test_phone:
+            return _json.dumps({'ok': False, 'message': 'Enter a phone number (with country code, no +) to test WhatsApp.'}), 400, {'Content-Type': 'application/json'}
+        payload = {
+            'messaging_product': 'whatsapp',
+            'to': test_phone.replace('+', '').replace(' ', ''),
+            'type': 'text',
+            'text': {'body': '👑 Vanshika Makeover Academy\n\nThis is a test message to confirm your WhatsApp integration is working correctly. ✅'},
+        }
+        ok, msg_or_err = _send_whatsapp(payload, _creds=creds)
+        result = (f'WhatsApp test sent (id: {msg_or_err})' if ok
+                  else f'WhatsApp failed: {msg_or_err}')
+
+    elif channel == 'fast2sms':
+        test_phone = _f('test_phone')
+        if not test_phone:
+            return _json.dumps({'ok': False, 'message': 'Enter a 10-digit mobile number to test Fast2SMS.'}), 400, {'Content-Type': 'application/json'}
+        ok = send_booking_otp_sms(test_phone, '123456', 'Test Admin', _creds=creds)
+        result = ('Fast2SMS test OTP sent (code: 123456).' if ok
+                  else 'Fast2SMS failed — check API key and logs.')
+
+    else:
+        return _json.dumps({'ok': False, 'message': 'Unknown channel.'}), 400, {'Content-Type': 'application/json'}
+
+    return _json.dumps({'ok': ok, 'message': result}), 200, {'Content-Type': 'application/json'}
 
 
 # ─── Bootstrap ───────────────────────────────────────────────────────────────

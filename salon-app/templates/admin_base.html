@@ -273,6 +273,9 @@
     <a href="{{ url_for('admin_branding') }}" class="nav-item {% if 'branding' in (request.endpoint or '') %}active{% endif %}">
       <i class="fa-solid fa-palette"></i> Branding
     </a>
+    <a href="{{ url_for('admin_messaging') }}" class="nav-item {% if 'messaging' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fa-solid fa-bell"></i> Messaging
+    </a>
     <a href="{{ url_for('admin_team') }}" class="nav-item {% if request.endpoint == 'admin_team' or 'team' in (request.endpoint or '') %}active{% endif %}">
       <i class="fa-solid fa-shield-halved"></i> Team Access
     </a>
