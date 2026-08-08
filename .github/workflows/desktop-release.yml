@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*.*.*'   # triggers on tags like v1.2.3
+  workflow_dispatch:
 
 permissions:
   contents: write   # needed to create GitHub Releases and upload assets
@@ -41,11 +42,16 @@ jobs:
         working-directory: desktop
         run: npm run build:server
 
-      - name: Build & publish Windows installer
+      - name: Build Windows installer
         working-directory: desktop
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: npm run dist:win
+        run: npx electron-builder --win --publish never
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: vanshika-makeover-windows
+          path: desktop/dist/*.exe
+          if-no-files-found: error
 
   # ── Linux build ──────────────────────────────────────────────────────────────
   build-linux:
@@ -79,8 +85,15 @@ jobs:
         working-directory: desktop
         run: npm run build:server
 
-      - name: Build & publish Linux packages
+      - name: Build Linux packages
         working-directory: desktop
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: npm run dist:linux
+        run: npx electron-builder --linux --publish never
+
+      - name: Upload Linux packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: vanshika-makeover-linux
+          path: |
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb
+          if-no-files-found: error

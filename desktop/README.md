@@ -57,11 +57,36 @@ detects the build Mac's architecture and produces one matching DMG:
 Do not use one Mac build to advertise both architectures. Run the command on
 each architecture when both DMGs are needed.
 
-## Publishing releases with GitHub Actions
+## Building Windows installers with GitHub Actions
 
-The workflow at `.github/workflows/desktop-release.yml` builds Windows and Linux
-installers automatically whenever you push a version tag. It needs a one-time
-secret so it can upload the installer files to GitHub Releases.
+The workflow at `.github/workflows/desktop-release.yml` builds the Windows
+installer on a native Windows runner, so you do not need a Windows computer or
+Wine in the Replit workspace.
+
+### Manual build (recommended)
+
+1. Push this project to the GitHub repository connected to the desktop release
+   workflow.
+2. Open the repository's **Actions** tab.
+3. Select **Desktop Release**.
+4. Click **Run workflow**, choose the branch, and click **Run workflow** again.
+5. Open the completed workflow run.
+6. Download the artifact named **`vanshika-makeover-windows`**.
+7. Extract the artifact and run the `.exe` installer on Windows.
+
+The Windows job builds a native `salon-server.exe`, places it inside the
+installer, and uploads the NSIS `.exe` as an artifact. Python is not required
+on the Windows customer's computer.
+
+The workflow also runs automatically when a version tag such as `v1.0.0` is
+pushed and uploads the Linux packages as a separate artifact.
+
+### Publishing a GitHub Release (optional)
+
+Publishing installers to the Releases page is optional. If you want the
+workflow to upload a release instead of only creating downloadable artifacts,
+configure the repository's `GH_TOKEN` secret with Contents read/write access
+and use the existing `npm run release` process.
 
 ### Step 1 — Create a GitHub personal access token
 
