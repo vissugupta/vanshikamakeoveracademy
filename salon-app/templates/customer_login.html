@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}My Account — Vanshika Makeover Academy{% endblock %}
+{% block title %}My Account — {{ tenant.name if tenant else 'Salon' }}{% endblock %}
 
 {% block content %}
 <div class="pt-5 pb-4">

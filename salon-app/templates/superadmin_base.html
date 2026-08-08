@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}Platform Admin{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --ink:  #0a0a0a; --ink2: #111111; --ink3: #161616; --ink4: #1e1e1e; --ink5: #2a2a2a;
+      --gold: #c9a96e; --gold2: #d4af37;
+      --cream: #f5f0e8; --cream2: #e8dcc8; --cream3: #b8a888;
+      --muted: #5e5248;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #090807; color: var(--cream); min-height: 100vh; }
+    .font-display { font-family: 'Playfair Display', serif; }
+    .btn-gold { background: linear-gradient(135deg,#a07840,#c9a96e,#d4af37); color:#0a0a0a; font-weight:700; transition: filter .2s; }
+    .btn-gold:hover { filter: brightness(1.1); }
+    .btn-danger { background: linear-gradient(135deg,#7f1d1d,#991b1b); color:#fca5a5; }
+    .stat-card { background: var(--ink4); border: 1px solid rgba(201,169,110,.18); border-radius: 16px; padding: 16px 14px; box-shadow: 0 4px 24px rgba(0,0,0,.5); }
+    .badge { display:inline-flex; align-items:center; border-radius:20px; padding:3px 10px; font-size:11px; font-weight:600; }
+    .badge-green { background:#0d1f14; color:#6ee7b7; border:1px solid #2d5a3d; }
+    .badge-red   { background:#1f0d0d; color:#fca5a5; border:1px solid #5a2d2d; }
+    .badge-gold  { background:rgba(201,169,110,.15); color:var(--gold2); border:1px solid rgba(201,169,110,.35); }
+    .badge-gray  { background:var(--ink5); color:var(--cream3); border:1px solid #3a3a3a; }
+    select,input,textarea { font-size:16px !important; background:var(--ink5) !important; color:var(--cream) !important; border-color:#333 !important; }
+    select option { background:var(--ink4); color:var(--cream); }
+    table { border-collapse:collapse; width:100%; }
+    th { background:var(--ink4); color:var(--gold2); font-size:11px; letter-spacing:.06em; text-transform:uppercase; font-weight:700; padding:10px 12px; border-bottom:1px solid rgba(201,169,110,.25); }
+    td { padding:11px 12px; font-size:13px; color:var(--cream2); border-bottom:1px solid rgba(255,255,255,.05); }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:rgba(201,169,110,.04); }
+    .gold-line-top { height:2px; background:linear-gradient(90deg,#a07840,#d4af37,#f0d880,#d4af37,#a07840); }
+    .flash-success { background:#0d1f14; border:1px solid #2d5a3d; color:#6ee7b7; }
+    .flash-error   { background:#1f0d0d; border:1px solid #5a2d2d; color:#fca5a5; }
+    .ornament-line { display:flex; align-items:center; gap:10px; color:var(--gold); font-size:11px; letter-spacing:.15em; text-transform:uppercase; font-weight:600; }
+    .ornament-line::before,.ornament-line::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,transparent,var(--gold),transparent); }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+<!-- Top bar -->
+<header class="sticky top-0 z-40" style="background:#0d0b09; border-bottom:1px solid rgba(201,169,110,.15);">
+  <div class="gold-line-top"></div>
+  <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+           style="background:linear-gradient(135deg,#a07840,#d4af37);">
+        <i class="fa-solid fa-crown text-xs" style="color:#0a0a0a;"></i>
+      </div>
+      <div>
+        <div class="font-display font-bold text-sm leading-tight" style="color:#f5f0e8;">Platform Admin</div>
+        <div class="text-xs" style="color:#c9a96e; letter-spacing:.1em;">Super Admin Console</div>
+      </div>
+    </div>
+    <nav class="flex items-center gap-4">
+      <a href="{{ url_for('superadmin_tenants') }}"
+         class="text-xs font-semibold transition px-3 py-1.5 rounded-lg
+         {% if 'superadmin_tenant' in (request.endpoint or '') %}text-yellow-400 bg-yellow-400/10{% else %}text-[#b8a888] hover:text-[#f5f0e8]{% endif %}">
+        <i class="fa-solid fa-store mr-1.5"></i>Salons
+      </a>
+      <a href="{{ url_for('superadmin_logout') }}"
+         class="text-xs font-semibold text-red-400 hover:text-red-300 transition px-3 py-1.5 rounded-lg hover:bg-red-400/10">
+        <i class="fa-solid fa-right-from-bracket mr-1.5"></i>Logout
+      </a>
+    </nav>
+  </div>
+</header>
+
+<!-- Flash messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="max-w-7xl mx-auto px-4 pt-4 space-y-2">
+    {% for category, message in messages %}
+    <div class="rounded-xl px-4 py-3 text-sm font-medium flex items-center gap-2
+      {% if category == 'success' %}flash-success{% else %}flash-error{% endif %}">
+      <i class="fa-solid {% if category == 'success' %}fa-circle-check{% else %}fa-circle-exclamation{% endif %} flex-shrink-0"></i>
+      {{ message }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+<!-- Main -->
+<main class="max-w-7xl mx-auto px-4 py-6">
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

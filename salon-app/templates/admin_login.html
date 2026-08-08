@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Admin Login — Vanshika Makeover Academy{% endblock %}
+{% block title %}Admin Login — {{ tenant.name if tenant else 'Salon' }}{% endblock %}
 
 {% block content %}
 <div class="pt-12 pb-8">
@@ -7,8 +7,8 @@
   <!-- Logo + title -->
   <div class="text-center mb-8">
     <div class="inline-block relative mb-4">
-      <img src="{{ url_for('static', filename='brand-logo.jpeg') }}"
-           alt="Vanshika Makeover Academy logo"
+      <img src="{{ tenant_logo_url or url_for('static', filename='brand-logo.jpeg') }}"
+           alt="{{ tenant.name if tenant else 'Salon' }} logo"
            class="w-28 h-28 rounded-2xl object-cover"
            style="border:1.5px solid rgba(201,169,110,.5); box-shadow:0 0 32px rgba(212,175,55,.25);" />
       <!-- Gold glow ring -->
@@ -16,7 +16,7 @@
            style="box-shadow:0 0 0 3px rgba(201,169,110,.15), 0 0 0 6px rgba(201,169,110,.07);"></div>
     </div>
     <h1 class="font-display text-2xl font-bold mb-1" style="color:#f5f0e8;">Admin Access</h1>
-    <p class="text-sm" style="color:#6e6058;">Vanshika Makeover Academy — Dashboard</p>
+    <p class="text-sm" style="color:#6e6058;">{{ tenant.name if tenant else 'Salon' }} — Dashboard</p>
   </div>
 
   {% if error %}
@@ -44,7 +44,7 @@
         </label>
         <input
           type="email" name="email"
-          placeholder="you@vanshika.com"
+          placeholder="your@email.com"
           required autofocus autocomplete="username"
           class="w-full rounded-xl px-4 py-3 focus:outline-none transition"
           style="border:1px solid rgba(201,169,110,.25);"

@@ -1,5 +1,5 @@
 {% extends "admin_base.html" %}
-{% block title %}Auto Rules — VMA ERP{% endblock %}
+{% block title %}Auto Rules — {{ tenant.name if tenant else "Salon" }}{% endblock %}
 {% block page_title %}Auto Follow-Up Rules{% endblock %}
 
 {% block content %}
@@ -110,7 +110,7 @@
         <label class="text-xs font-semibold text-gray-600">Message *</label>
         <p class="text-xs text-gray-400">Use <code>{{ '{{customer_name}}' }}</code> for personalisation</p>
         <textarea name="message_template" required rows="4"
-                  placeholder="👑 Hi {{customer_name}}! We miss you at Vanshika Makeover Academy…"
+                  placeholder="👑 Hi {{customer_name}}! We miss you at {{ tenant.name if tenant else 'our salon' }}…"
                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1 resize-none"></textarea>
       </div>
       <button type="submit" class="w-full py-3 rounded-xl font-semibold text-white"

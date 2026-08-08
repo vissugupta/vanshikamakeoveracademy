@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Reschedule Appointment — Vanshika Makeover Academy{% endblock %}
+{% block title %}Reschedule Appointment — {{ tenant.name if tenant else 'Salon' }}{% endblock %}
 
 {% block content %}
 <div class="pt-5 pb-4">

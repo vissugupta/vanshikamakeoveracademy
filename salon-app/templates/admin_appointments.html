@@ -1,5 +1,5 @@
 {% extends "admin_base.html" %}
-{% block title %}Appointments — VMA ERP{% endblock %}
+{% block title %}Appointments — {{ tenant.name if tenant else "Salon" }}{% endblock %}
 {% block page_title %}Appointments{% endblock %}
 
 {% block content %}
@@ -94,7 +94,7 @@
         <div class="text-xs text-gray-400 mt-1.5">✉ {{ appt['email'] }}</div>
         {% endif %}
         <div class="text-xs text-gray-300 mt-1">
-          #VMA-{{ appt['id'] }} · {{ appt['created_at'][:10] if appt['created_at'] else '' }}
+          #{{ appt['id'] }} · {{ appt['created_at'][:10] if appt['created_at'] else '' }}
         </div>
         <!-- Staff assignment -->
         {% if active_staff %}

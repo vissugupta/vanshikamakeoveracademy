@@ -1,5 +1,5 @@
 {% extends "admin_base.html" %}
-{% block title %}Invoice #{{ invoice.id }} — VMA ERP{% endblock %}
+{% block title %}Invoice #{{ invoice.id }} — {{ tenant.name if tenant else "Salon" }}{% endblock %}
 {% block page_title %}Invoice #{{ invoice.id }}{% endblock %}
 
 {% block head %}
@@ -60,7 +60,7 @@
   <!-- Header -->
   <div class="receipt-header">
     <div class="text-3xl mb-2">👑</div>
-    <div class="font-display text-white font-bold text-xl">Vanshika Makeover Academy</div>
+    <div class="font-display text-white font-bold text-xl">{{ tenant.name if tenant else 'Salon' }}</div>
     <div class="text-pink-200 text-xs mt-1 tracking-widest">INVOICE RECEIPT</div>
   </div>
   <div class="receipt-divider"></div>
@@ -151,7 +151,7 @@
 
   <!-- Footer -->
   <div style="background:linear-gradient(135deg,#fce7f3,#fde68a); padding:16px 20px; text-align:center;">
-    <div class="text-sm font-semibold" style="color:#9d174d;">Thank you for choosing Vanshika Makeover Academy!</div>
+    <div class="text-sm font-semibold" style="color:#9d174d;">Thank you for choosing {{ tenant.name if tenant else 'us' }}!</div>
     <div class="text-xs text-gray-500 mt-1">✨ See you again soon 💅</div>
   </div>
 </div>

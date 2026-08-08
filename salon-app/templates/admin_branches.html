@@ -1,5 +1,5 @@
 {% extends "admin_base.html" %}
-{% block title %}Branches — VMA ERP{% endblock %}
+{% block title %}Branches — {{ tenant.name if tenant else "Salon" }}{% endblock %}
 {% block page_title %}Branches{% endblock %}
 
 {% block content %}

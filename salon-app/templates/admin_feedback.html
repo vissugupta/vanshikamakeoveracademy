@@ -1,5 +1,5 @@
 {% extends "admin_base.html" %}
-{% block title %}Reviews — VMA ERP{% endblock %}
+{% block title %}Reviews — {{ tenant.name if tenant else "Salon" }}{% endblock %}
 {% block page_title %}Customer Reviews{% endblock %}
 
 {% block content %}

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Booking Confirmed — Vanshika Makeover Academy{% endblock %}
+{% block title %}Booking Confirmed — {{ tenant.name if tenant else 'Salon' }}{% endblock %}
 
 {% block content %}
 <div class="pt-8 pb-8 text-center">
@@ -32,7 +32,7 @@
   <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-4"
        style="background:linear-gradient(135deg,#92400e,#d97706); box-shadow:0 4px 16px rgba(180,83,9,0.35);">
     <i class="fa-solid fa-hashtag text-yellow-200 text-xs"></i>
-    <span class="text-white font-bold text-sm tracking-wider">Booking ID: VMA-{{ booking_id }}</span>
+    <span class="text-white font-bold text-sm tracking-wider">Booking ID: #{{ booking_id }}</span>
   </div>
 
   <!-- SMS sent notice -->
@@ -62,7 +62,7 @@
         </div>
         <div>
           <div class="text-xs text-gray-400 font-medium">Booking ID</div>
-          <div class="text-gray-800 font-bold" style="color:#92400e;">VMA-{{ booking_id }}</div>
+          <div class="text-gray-800 font-bold" style="color:#92400e;">{{ booking_id }}</div>
         </div>
       </div>
 

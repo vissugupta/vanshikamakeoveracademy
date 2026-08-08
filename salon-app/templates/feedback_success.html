@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Thank You! — Vanshika Makeover Academy{% endblock %}
+{% block title %}Thank You! — {{ tenant.name if tenant else 'Salon' }}{% endblock %}
 
 {% block content %}
 <div class="pt-8 pb-8 text-center">
@@ -37,7 +37,7 @@
   <!-- Gold ornament divider -->
   <div class="ornament-line mb-5 px-4" style="color:#b45309; font-size:10px;">
     <i class="fa-solid fa-heart text-xs" style="color:#be185d;"></i>
-    From Vanshika Makeover Academy
+    From {{ tenant.name if tenant else 'Salon' }}
     <i class="fa-solid fa-heart text-xs" style="color:#be185d;"></i>
   </div>
 

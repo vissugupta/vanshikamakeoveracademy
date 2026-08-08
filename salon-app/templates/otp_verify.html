@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Verify OTP — Vanshika Makeover Academy{% endblock %}
+{% block title %}Verify OTP — {{ tenant.name if tenant else 'Salon' }}{% endblock %}
 
 {% block head %}
 <style>

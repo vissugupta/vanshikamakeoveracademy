@@ -1,5 +1,5 @@
 {% extends "admin_base.html" %}
-{% block title %}{{ customer['name'] }} — VMA ERP{% endblock %}
+{% block title %}{{ customer['name'] }} — {{ tenant.name if tenant else "Salon" }}{% endblock %}
 {% block page_title %}Customer Profile{% endblock %}
 
 {% block content %}
@@ -134,7 +134,7 @@
     <div class="flex gap-2 flex-wrap">
       <span class="badge badge-rose" style="font-size:10px;">📅 {{ a['date'] }}</span>
       <span class="badge badge-gold" style="font-size:10px;">⏰ {{ a['time'] }}</span>
-      <span class="badge badge-gray" style="font-size:10px;">#VMA-{{ a['id'] }}</span>
+      <span class="badge badge-gray" style="font-size:10px;">#{{ a['id'] }}</span>
     </div>
   </div>
   {% endfor %}
