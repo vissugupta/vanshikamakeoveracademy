@@ -21,3 +21,10 @@ uri = "file://updated-vanshikamakeoveracademy-github-source.zip"
 type = "unspecified"
 title = "Updated Vanshika Makeover Academy GitHub Source"
 description = "Updated source archive with Electron pinned to 31.7.7, fixing the electron-builder version error. Includes the Windows release workflow."
+
+[[outputs]]
+id = "_c9pLtKW76K_2qMUX8C-P"
+uri = "file://final-vanshikamakeoveracademy-github-source.zip"
+type = "unspecified"
+title = "Final Windows Build Source — Vanshika Makeover Academy"
+description = "Source archive with Electron 31.7.7 and electron-builder 24.13.3 pinned exactly, build.electronVersion configured, and a CI guard that rejects ranged versions."
