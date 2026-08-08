@@ -1,0 +1,9 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "XcYcSkEC8c0xDv9CYow0Z"
+uri = "file://desktop/dist/Vanshika%20Makeover%20Academy-1.0.0.AppImage"
+type = "unspecified"
+title = "Vanshika Makeover Academy Desktop — Linux AppImage"
+description = "Self-contained Linux desktop installer. Includes the bundled Flask server and does not require Python on the customer machine."
