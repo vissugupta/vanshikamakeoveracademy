@@ -1,0 +1,204 @@
+{% extends "admin_base.html" %}
+{% block title %}Dashboard — {{ tenant.name if tenant else "Salon" }}{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Messaging credentials warning banner -->
+{% if messaging_warning %}
+<div class="rounded-2xl p-3 mb-4 flex items-start gap-3"
+     style="background:#2a1a00;border:1px solid #b45309;">
+  <i class="fa-solid fa-triangle-exclamation flex-shrink-0 mt-0.5" style="color:#f59e0b;"></i>
+  <div class="flex-1 min-w-0">
+    <p class="font-semibold text-sm" style="color:#fbbf24;">Messaging not configured</p>
+    <p class="text-xs mt-0.5" style="color:#d97706;">
+      OTP delivery is disabled — customers cannot complete bookings online.
+      <a href="{{ url_for('admin_messaging') }}" class="underline font-semibold" style="color:#fbbf24;">Set up credentials →</a>
+    </p>
+  </div>
+  <a href="{{ url_for('admin_messaging') }}" class="flex-shrink-0 text-xs font-bold rounded-lg px-3 py-1.5"
+     style="background:#b45309;color:#fff;">Fix</a>
+</div>
+{% endif %}
+
+<!-- Revenue cards -->
+<div class="grid grid-cols-3 gap-2 mb-3">
+  <div class="stat-card text-center" style="border-color:#6ee7b7;">
+    <div class="text-xl font-bold font-display" style="color:#065f46;">₹{{ '%.0f'|format(rev_today) }}</div>
+    <div class="text-xs text-gray-500 mt-0.5">Today's Revenue</div>
+  </div>
+  <div class="stat-card text-center" style="border-color:#6ee7b7;">
+    <div class="text-xl font-bold font-display" style="color:#065f46;">₹{{ '%.0f'|format(rev_week) }}</div>
+    <div class="text-xs text-gray-500 mt-0.5">This Week</div>
+  </div>
+  <div class="stat-card text-center" style="border-color:#6ee7b7;">
+    <div class="text-xl font-bold font-display" style="color:#065f46;">₹{{ '%.0f'|format(rev_month) }}</div>
+    <div class="text-xs text-gray-500 mt-0.5">This Month</div>
+  </div>
+</div>
+
+<!-- Stats grid -->
+<div class="grid grid-cols-2 gap-3 mb-4">
+  <div class="stat-card text-center">
+    <div class="text-2xl font-bold font-display" style="color:#9d174d;">{{ today_bookings }}</div>
+    <div class="text-xs text-gray-500 mt-0.5">Today's Bookings</div>
+  </div>
+  <div class="stat-card text-center">
+    <div class="text-2xl font-bold font-display" style="color:#9d174d;">{{ total_customers }}</div>
+    <div class="text-xs text-gray-500 mt-0.5">Total Customers</div>
+  </div>
+  <div class="stat-card text-center">
+    <div class="text-2xl font-bold font-display" style="color:#b45309;">{{ total_invoices }}</div>
+    <div class="text-xs text-gray-500 mt-0.5">Total Invoices</div>
+  </div>
+  <div class="stat-card text-center">
+    <div class="text-2xl font-bold font-display" style="color:#b45309;">
+      {% if avg_rating %}{{ avg_rating }}⭐{% else %}—{% endif %}
+    </div>
+    <div class="text-xs text-gray-500 mt-0.5">Avg Rating</div>
+  </div>
+</div>
+
+<!-- Quick actions -->
+<div class="grid grid-cols-4 gap-2 mb-5">
+  <a href="{{ url_for('admin_appointments') }}"
+     class="btn-rose rounded-xl py-3 flex flex-col items-center gap-1 text-xs font-semibold">
+    <i class="fa-solid fa-calendar-check text-base"></i> Appts
+  </a>
+  <a href="{{ url_for('admin_billing_new') }}"
+     class="rounded-xl py-3 flex flex-col items-center gap-1 text-xs font-semibold text-emerald-800"
+     style="background:#d1fae5; border:1px solid #6ee7b7;">
+    <i class="fa-solid fa-file-invoice-dollar text-base"></i> Invoice
+  </a>
+  <a href="{{ url_for('admin_customers') }}"
+     class="btn-gold rounded-xl py-3 flex flex-col items-center gap-1 text-xs font-semibold">
+    <i class="fa-solid fa-users text-base"></i> Customers
+  </a>
+  <a href="{{ url_for('admin_inventory') }}"
+     class="rounded-xl py-3 flex flex-col items-center gap-1 text-xs font-semibold text-rose-800"
+     style="background:#fce7f3; border:1px solid #f9a8d4;">
+    <i class="fa-solid fa-boxes-stacked text-base"></i> Stock
+  </a>
+</div>
+
+<!-- Expiring memberships alert -->
+{% if expiring_memberships %}
+<div class="bg-red-50 border border-red-200 rounded-2xl p-3 mb-4">
+  <div class="flex items-center gap-2 mb-2">
+    <i class="fa-solid fa-gem text-red-500"></i>
+    <span class="font-semibold text-red-700 text-sm">{{ expiring_memberships|length }} membership{{ 's' if expiring_memberships|length != 1 else '' }} expiring within 7 days</span>
+    <a href="{{ url_for('admin_memberships') }}" class="ml-auto text-xs text-red-500 hover:underline">Manage →</a>
+  </div>
+  {% for e in expiring_memberships[:3] %}
+  <div class="text-xs text-red-600 bg-white rounded-lg px-3 py-1.5 mb-1 flex items-center justify-between"
+       style="border:1px solid #fca5a5;">
+    <span><strong>{{ e.cust_name }}</strong> · {{ e.plan_name }}</span>
+    <span class="text-gray-500">{{ e.expiry_date }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Upcoming appointments -->
+{% if upcoming_appts %}
+<h2 class="font-display text-base font-bold mb-3 flex items-center gap-2" style="color:#9d174d;">
+  <i class="fa-solid fa-clock-rotate-left text-sm"></i> Upcoming
+  <a href="{{ url_for('admin_appointments') }}" class="ml-auto text-xs font-normal text-gray-400">View all →</a>
+</h2>
+<div class="space-y-2 mb-5">
+  {% for a in upcoming_appts %}
+  <div class="bg-white rounded-2xl p-3 card-shadow flex items-start gap-3" style="border:1px solid #fde68a;">
+    <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center"
+         style="background:linear-gradient(135deg,#fce7f3,#fde68a);">
+      <i class="fa-solid fa-calendar-day text-sm" style="color:#b45309;"></i>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="font-semibold text-sm text-gray-800 truncate">{{ a['name'] }}</div>
+      <div class="text-xs text-pink-600 truncate">{{ a['service'] }}</div>
+      <div class="flex gap-2 mt-1 flex-wrap">
+        <span class="badge badge-rose" style="font-size:10px;">📅 {{ a['date'] }}</span>
+        <span class="badge badge-gold" style="font-size:10px;">⏰ {{ a['time'] }}</span>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Recent customers -->
+{% if recent_customers %}
+<h2 class="font-display text-base font-bold mb-3 flex items-center gap-2" style="color:#9d174d;">
+  <i class="fa-solid fa-user-plus text-sm"></i> New Customers
+  <a href="{{ url_for('admin_customers') }}" class="ml-auto text-xs font-normal text-gray-400">View all →</a>
+</h2>
+<div class="space-y-2 mb-5">
+  {% for c in recent_customers %}
+  <a href="{{ url_for('admin_customer_detail', cust_id=c['id']) }}"
+     class="bg-white rounded-2xl p-3 card-shadow flex items-center gap-3 block" style="border:1px solid #fde68a;">
+    <div class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-sm"
+         style="background:linear-gradient(135deg,#9d174d,#be185d);">
+      {{ c['name'][0].upper() }}
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="font-semibold text-sm text-gray-800 truncate">{{ c['name'] }}</div>
+      <div class="text-xs text-gray-400">{{ c['phone'] }} · {{ c['visit_count'] }} visit{{ 's' if c['visit_count'] != 1 else '' }}</div>
+    </div>
+    <i class="fa-solid fa-chevron-right text-xs text-gray-300"></i>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Recent invoices -->
+{% if recent_invoices %}
+<h2 class="font-display text-base font-bold mb-3 flex items-center gap-2" style="color:#065f46;">
+  <i class="fa-solid fa-file-invoice-dollar text-sm"></i> Recent Invoices
+  <a href="{{ url_for('admin_billing') }}" class="ml-auto text-xs font-normal text-gray-400">View all →</a>
+</h2>
+<div class="space-y-2 mb-5">
+  {% for inv in recent_invoices %}
+  <a href="{{ url_for('admin_invoice_detail', inv_id=inv.id) }}"
+     class="bg-white rounded-2xl p-3 card-shadow flex items-center gap-3 block" style="border:1px solid #d1fae5;">
+    <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center"
+         style="background:linear-gradient(135deg,#d1fae5,#fde68a);">
+      <i class="fa-solid fa-receipt text-sm" style="color:#065f46;"></i>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="font-semibold text-sm text-gray-800 truncate">{{ inv.customer_name or 'Walk-in' }}</div>
+      <div class="flex gap-2 mt-0.5 flex-wrap">
+        <span class="text-xs text-gray-400">#{{ inv.id }} · {{ inv.created_at[:10] }}</span>
+        <span class="badge {% if inv.status == 'paid' %}badge-green{% else %}badge-red{% endif %}" style="font-size:10px;">
+          {{ inv.status | capitalize }}
+        </span>
+      </div>
+    </div>
+    <div class="font-bold text-sm flex-shrink-0" style="color:#065f46;">₹{{ '%.0f'|format(inv.total) }}</div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Recent feedback -->
+{% if recent_feedback %}
+<h2 class="font-display text-base font-bold mb-3 flex items-center gap-2" style="color:#9d174d;">
+  <i class="fa-solid fa-star text-sm"></i> Recent Reviews
+  <a href="{{ url_for('admin_feedback') }}" class="ml-auto text-xs font-normal text-gray-400">View all →</a>
+</h2>
+<div class="space-y-2">
+  {% for fb in recent_feedback %}
+  <div class="bg-white rounded-2xl p-3 card-shadow" style="border:1px solid #fde68a;">
+    <div class="flex items-center gap-1 mb-1">
+      {% for i in range(1,6) %}
+      <span class="text-sm {% if i <= fb['rating'] %}star-filled{% else %}star-empty{% endif %}">★</span>
+      {% endfor %}
+      <span class="ml-1 text-xs text-gray-400">{{ fb['rating'] }}/5</span>
+    </div>
+    <div class="font-semibold text-sm text-gray-800">{{ fb['customer_name'] }}</div>
+    <div class="text-xs text-pink-600">{{ fb['service'] }}</div>
+    {% if fb['comment'] %}
+    <div class="text-xs text-gray-500 italic mt-1">"{{ fb['comment'] | truncate(80) }}"</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

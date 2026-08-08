@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+{% block title %}Share Feedback — {{ tenant.name if tenant else 'Salon' }}{% endblock %}
+
+{% block head %}
+<style>
+  .star-btn { cursor: pointer; transition: transform 0.15s, filter 0.15s; }
+  .star-btn:active { transform: scale(1.25); }
+  .star-btn.active i { color: #d97706; filter: drop-shadow(0 0 5px rgba(217,119,6,0.6)); }
+  .star-btn.inactive i { color: #e5e7eb; }
+  .feedback-page .feedback-card {
+    background: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06) !important;
+  }
+  .feedback-page .feedback-label {
+    color: #475569 !important;
+  }
+  .feedback-page .feedback-label i {
+    color: #b78a3c !important;
+  }
+  .feedback-page .feedback-field {
+    appearance: none;
+    background: #f8fafc !important;
+    border: 1px solid #dbe3ec !important;
+    border-radius: 12px;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03);
+    color: #1f2937 !important;
+    min-height: 50px;
+    outline: none;
+    transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  }
+  .feedback-page .feedback-field::placeholder {
+    color: #94a3b8 !important;
+    opacity: 1;
+  }
+  .feedback-page .feedback-field:focus {
+    background: #ffffff !important;
+    border-color: #c9a96e !important;
+    box-shadow: 0 0 0 4px rgba(201, 169, 110, 0.16), inset 0 1px 2px rgba(15, 23, 42, 0.03) !important;
+  }
+  .feedback-page select.feedback-field option {
+    background: #ffffff !important;
+    color: #1f2937 !important;
+  }
+  .feedback-page .feedback-upload {
+    border-color: #dbe3ec !important;
+    background: #f8fafc !important;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="feedback-page pt-5 pb-4">
+
+  <!-- Header with image banner -->
+  <div class="relative rounded-2xl overflow-hidden mb-6" style="height:140px;">
+    <img
+      src="https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&q=80&fit=crop"
+      alt="Share Feedback"
+      class="w-full h-full object-cover"
+      onerror="this.parentElement.style.background='linear-gradient(135deg,#b45309,#d97706)'"
+    />
+    <div class="absolute inset-0" style="background:linear-gradient(135deg,rgba(180,83,9,0.75) 0%,rgba(157,23,77,0.5) 100%);"></div>
+    <div class="absolute top-0 left-0 right-0" style="height:3px; background:linear-gradient(90deg,#92400e,#fbbf24,#d97706,#fbbf24,#92400e);"></div>
+    <div class="absolute inset-0 flex flex-col items-center justify-center">
+      <div class="w-12 h-12 rounded-full flex items-center justify-center mb-2"
+           style="background:linear-gradient(135deg,#be185d,#db2777); box-shadow:0 4px 16px rgba(190,24,93,0.4);">
+        <i class="fa-solid fa-star text-white text-lg"></i>
+      </div>
+      <h1 class="font-display text-2xl font-bold text-white drop-shadow-sm">Share Your Experience</h1>
+      <p class="text-pink-200 text-xs mt-1 tracking-wide">Your feedback helps us serve you better</p>
+    </div>
+  </div>
+
+  <!-- Error messages -->
+  {% if errors %}
+  <div class="rounded-2xl p-4 mb-5 flex gap-3" style="background:#fef2f2; border:1px solid #fecaca;">
+    <i class="fa-solid fa-circle-exclamation text-red-400 mt-0.5 flex-shrink-0"></i>
+    <div class="space-y-1">
+      {% for e in errors %}
+      <div class="text-red-700 text-sm">{{ e }}</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <form method="POST" action="/feedback" enctype="multipart/form-data" class="space-y-3">
+
+    <!-- Name -->
+    <div class="feedback-card rounded-2xl p-4 card-shadow">
+      <label class="feedback-label flex items-center gap-2 text-xs font-semibold uppercase tracking-wider mb-2" style="color:#b45309;">
+        <i class="fa-solid fa-user w-4 text-center" style="color:#d97706;"></i>
+        Your Name <span class="text-red-400">*</span>
+      </label>
+      <input
+        type="text" name="customer_name"
+        value="{{ form.get('customer_name', '') }}"
+        placeholder="Enter your name"
+        required
+        class="feedback-field w-full rounded-xl px-4 py-3 text-gray-700 focus:outline-none transition"
+        style="border:1.5px solid #fde68a; background:#fffbf0; font-size:16px;"
+        onfocus="this.style.borderColor='#d97706';"
+        onblur="this.style.borderColor='#fde68a';"
+      />
+    </div>
+
+    <!-- Service -->
+    <div class="feedback-card rounded-2xl p-4 card-shadow">
+      <label class="feedback-label flex items-center gap-2 text-xs font-semibold uppercase tracking-wider mb-2" style="color:#b45309;">
+        <i class="fa-solid fa-spa w-4 text-center" style="color:#d97706;"></i>
+        Service Received <span class="text-red-400">*</span>
+      </label>
+      <div class="relative">
+        <select
+          name="service"
+          required
+           class="feedback-field w-full rounded-xl px-4 py-3 text-gray-700 appearance-none focus:outline-none transition pr-10"
+          style="border:1.5px solid #fde68a; background:#fffbf0; font-size:16px;"
+          onfocus="this.style.borderColor='#d97706';"
+          onblur="this.style.borderColor='#fde68a';"
+        >
+          <option value="">— Select Service —</option>
+          {% for s in all_services %}
+          <option value="{{ s }}" {% if form.get('service') == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+        <i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-xs pointer-events-none" style="color:#d97706;"></i>
+      </div>
+    </div>
+
+    <!-- Star Rating -->
+    <div class="feedback-card rounded-2xl p-4 card-shadow">
+      <label class="feedback-label flex items-center gap-2 text-xs font-semibold uppercase tracking-wider mb-4" style="color:#b45309;">
+        <i class="fa-solid fa-star w-4 text-center" style="color:#d97706;"></i>
+        Your Rating <span class="text-red-400">*</span>
+      </label>
+      <input type="hidden" name="rating" id="ratingInput" value="{{ form.get('rating', '') }}" required />
+
+      <div class="flex items-center justify-center gap-4 mb-3">
+        {% for i in range(1, 6) %}
+        <button
+          type="button"
+          onclick="setRating({{ i }})"
+          id="star{{ i }}"
+          class="star-btn inactive focus:outline-none"
+          aria-label="{{ i }} star"
+        >
+          <i class="fa-solid fa-star text-4xl transition-all duration-150"></i>
+        </button>
+        {% endfor %}
+      </div>
+
+      <!-- Rating label -->
+      <div id="ratingLabel" class="text-center h-8 flex flex-col items-center justify-center">
+        <span id="ratingText" class="text-sm font-semibold" style="color:#b45309;"></span>
+        <div id="ratingBar" class="mt-1 h-1 rounded-full transition-all duration-300" style="background:linear-gradient(90deg,#d97706,#fbbf24); width:0%;"></div>
+      </div>
+    </div>
+
+    <!-- Comment -->
+    <div class="feedback-card rounded-2xl p-4 card-shadow">
+      <label class="feedback-label flex items-center gap-2 text-xs font-semibold uppercase tracking-wider mb-2" style="color:#b45309;">
+        <i class="fa-solid fa-comment-dots w-4 text-center" style="color:#d97706;"></i>
+        Comments
+        <span class="text-gray-400 text-xs font-normal normal-case tracking-normal">(Optional)</span>
+      </label>
+      <textarea
+        name="comment"
+        rows="4"
+        placeholder="Tell us about your experience — what you loved, what we can improve…"
+        class="feedback-field w-full rounded-xl px-4 py-3 text-gray-700 focus:outline-none transition resize-none"
+        style="border:1.5px solid #fde68a; background:#fffbf0; font-size:16px;"
+        onfocus="this.style.borderColor='#d97706';"
+        onblur="this.style.borderColor='#fde68a';"
+      >{{ form.get('comment', '') }}</textarea>
+    </div>
+
+    <!-- Photo / video -->
+    <div class="feedback-card rounded-2xl p-4 card-shadow">
+      <label class="feedback-label flex items-center gap-2 text-xs font-semibold uppercase tracking-wider mb-2" style="color:#b45309;">
+        <i class="fa-solid fa-camera w-4 text-center" style="color:#d97706;"></i>
+        Share a Photo or Video
+        <span class="text-gray-400 text-xs font-normal normal-case tracking-normal">(Optional)</span>
+      </label>
+      <label for="feedbackMedia"
+             class="flex flex-col items-center justify-center gap-2 rounded-xl px-4 py-5 cursor-pointer transition"
+             class="feedback-upload"
+             style="border:1.5px dashed #f4c46b; background:#fffbf0;">
+        <span class="w-11 h-11 rounded-full flex items-center justify-center"
+              style="background:#fef3c7; color:#b45309;">
+          <i class="fa-solid fa-cloud-arrow-up text-lg"></i>
+        </span>
+        <span id="mediaLabel" class="text-sm font-semibold" style="color:#92400e;">Take or choose a file</span>
+        <span class="text-xs text-gray-400 text-center">Photo or short video · JPG, PNG, WEBP, GIF, MP4, MOV, WEBM · up to 25 MB</span>
+      </label>
+      <input id="feedbackMedia" type="file" name="media"
+             accept="image/*,video/mp4,video/quicktime,video/webm"
+             capture="environment" class="hidden" />
+      <div id="mediaPreview" class="hidden mt-3 overflow-hidden rounded-xl" style="background:#fffbf0;"></div>
+    </div>
+
+    <!-- Submit -->
+    <button
+      type="submit"
+      class="btn-rose w-full py-4 rounded-2xl text-base font-bold shadow-lg flex items-center justify-center gap-2"
+    >
+      <i class="fa-solid fa-paper-plane"></i>
+      Submit Feedback
+    </button>
+
+  </form>
+</div>
+
+<script>
+  const labels = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];
+  const widths  = ['0%', '20%', '40%', '60%', '80%', '100%'];
+  let currentRating = parseInt("{{ form.get('rating', 0) }}") || 0;
+
+  function setRating(val) {
+    currentRating = val;
+    document.getElementById('ratingInput').value = val;
+    document.getElementById('ratingText').textContent = labels[val];
+    document.getElementById('ratingBar').style.width = widths[val];
+    for (let i = 1; i <= 5; i++) {
+      const btn = document.getElementById('star' + i);
+      if (i <= val) {
+        btn.classList.add('active');
+        btn.classList.remove('inactive');
+      } else {
+        btn.classList.remove('active');
+        btn.classList.add('inactive');
+      }
+    }
+  }
+
+  if (currentRating) setRating(currentRating);
+
+  const mediaInput = document.getElementById('feedbackMedia');
+  const mediaPreview = document.getElementById('mediaPreview');
+  const mediaLabel = document.getElementById('mediaLabel');
+  mediaInput.addEventListener('change', () => {
+    const file = mediaInput.files && mediaInput.files[0];
+    if (!file) {
+      mediaPreview.classList.add('hidden');
+      mediaPreview.innerHTML = '';
+      mediaLabel.textContent = 'Take or choose a file';
+      return;
+    }
+    mediaLabel.textContent = file.name;
+    mediaPreview.classList.remove('hidden');
+    mediaPreview.innerHTML = '';
+    const previewUrl = URL.createObjectURL(file);
+    const preview = file.type.startsWith('video/')
+      ? document.createElement('video')
+      : document.createElement('img');
+    preview.src = previewUrl;
+    preview.className = 'w-full max-h-64 object-contain';
+    if (preview.tagName === 'VIDEO') {
+      preview.controls = true;
+      preview.playsInline = true;
+    }
+    mediaPreview.appendChild(preview);
+  });
+</script>
+{% endblock %}

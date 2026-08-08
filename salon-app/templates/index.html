@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}{{ tenant.name if tenant else 'Salon' }} — Beauty, Bridal & Grooming{% endblock %}
+{% block main_class %}max-w-none px-0 pb-0{% endblock %}
+{% block top_nav %}{% endblock %}
+{% block bottom_nav %}{% endblock %}
+
+{% block head %}
+<style>
+  .home-page { background:#090807; color:#f5f0e8; overflow:hidden; }
+  .home-shell { max-width:1440px; margin:0 auto; }
+  .home-header { background:rgba(9,8,7,.72); border-bottom:1px solid rgba(229,196,122,.16); backdrop-filter:blur(18px); }
+  .home-header a { transition:color .2s ease; }
+  .home-header a:hover { color:#e5c47a !important; }
+  .hero-photo { background-image:linear-gradient(90deg,rgba(9,8,7,.98) 0%,rgba(9,8,7,.86) 38%,rgba(9,8,7,.38) 70%,rgba(9,8,7,.76) 100%),url('https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?w=1800&q=88&fit=crop&crop=faces'); background-position:center 28%; background-size:cover; }
+  .hero-photo::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg,rgba(9,8,7,.15),transparent 52%,#090807 100%); pointer-events:none; }
+  .gold-glow { background:radial-gradient(circle,rgba(229,196,122,.25),transparent 68%); filter:blur(4px); }
+  .home-grid { background-image:linear-gradient(rgba(229,196,122,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(229,196,122,.045) 1px,transparent 1px); background-size:56px 56px; mask-image:linear-gradient(to bottom,black,transparent 80%); }
+  .gold-rule { background:linear-gradient(90deg,transparent,#a07838,#e5c47a,#a07838,transparent); }
+  .eyebrow { color:#d6b56e; letter-spacing:.24em; font-size:.68rem; font-weight:700; text-transform:uppercase; }
+  .display-title { font-family:'Playfair Display',serif; letter-spacing:-.055em; }
+  .gold-gradient { background:linear-gradient(110deg,#a07838,#f2d28a,#c9a45a,#f2d28a); background-size:220% auto; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; animation:homeShimmer 7s linear infinite; }
+  @keyframes homeShimmer { from { background-position:220% center; } to { background-position:-220% center; } }
+  .home-btn { transition:transform .2s ease,box-shadow .2s ease,filter .2s ease; }
+  .home-btn:hover { transform:translateY(-2px); filter:brightness(1.08); box-shadow:0 14px 36px rgba(201,164,90,.24); }
+  .home-card { background:linear-gradient(145deg,rgba(28,23,17,.92),rgba(14,12,10,.96)); border:1px solid rgba(229,196,122,.16); box-shadow:0 18px 50px rgba(0,0,0,.28); }
+  .home-card:hover { border-color:rgba(229,196,122,.42); transform:translateY(-4px); }
+  .service-tile { transition:transform .3s ease,border-color .3s ease,box-shadow .3s ease; }
+  .service-tile:hover { transform:translateY(-5px); border-color:rgba(229,196,122,.5) !important; box-shadow:0 18px 42px rgba(0,0,0,.4); }
+  .service-tile img { transition:transform .7s ease; }
+  .service-tile:hover img { transform:scale(1.06); }
+  .float-orb { animation:homeFloat 9s ease-in-out infinite; }
+  @keyframes homeFloat { 0%,100% { transform:translate3d(0,0,0); } 50% { transform:translate3d(0,-15px,0); } }
+  @media (max-width:767px) {
+    .desktop-nav { display:none; }
+    .hero-photo { background-position:62% top; min-height:710px; }
+    .hero-copy { padding-top:130px; }
+    .hero-copy h1 { font-size:3.4rem; }
+    .hero-stats { grid-template-columns:repeat(3,1fr); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="home-page min-h-screen">
+  <header class="home-header absolute left-0 right-0 top-0 z-30">
+    <div class="home-shell px-5 sm:px-8 lg:px-14">
+      <div class="flex h-[76px] items-center justify-between">
+        <a href="/" class="flex items-center gap-3">
+          <img src="{{ tenant_logo_url }}" alt="{{ tenant.name if tenant else 'Salon' }} logo"
+               class="h-11 w-11 rounded-lg object-cover" style="border:1px solid rgba(229,196,122,.55); box-shadow:0 0 22px rgba(201,164,90,.2);" />
+          <div>
+            <div class="display-title text-lg font-semibold leading-none text-[#f5ecdc]">
+              {{ (tenant.name or '').split()[0] if tenant else 'Salon' }}
+            </div>
+            <div class="mt-1 text-[9px] font-semibold uppercase tracking-[.23em] text-[#c9a45a]">
+              {{ tenant.tagline if tenant else '' }}
+            </div>
+          </div>
+        </a>
+        <nav class="desktop-nav hidden items-center gap-8 lg:flex">
+          <a href="#experience" class="text-xs uppercase tracking-[.18em] text-[#b5a78e]">Experience</a>
+          <a href="#services" class="text-xs uppercase tracking-[.18em] text-[#b5a78e]">Services</a>
+          <a href="#promise" class="text-xs uppercase tracking-[.18em] text-[#b5a78e]">Our Promise</a>
+        </nav>
+        <div class="flex items-center gap-2 sm:gap-3">
+          <a href="/my" class="hidden rounded-full border border-[#c9a45a]/30 px-4 py-2.5 text-xs font-semibold text-[#d6b56e] transition hover:border-[#e5c47a] sm:inline-flex">My Account</a>
+          <a href="/book" class="home-btn inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#a07838] via-[#e5c47a] to-[#c9a45a] px-4 py-2.5 text-xs font-bold text-[#100c08] sm:px-5">
+            <i class="fa-solid fa-calendar-check"></i><span>Book an Appointment</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero-photo relative min-h-[680px]">
+    <div class="home-grid absolute inset-0 opacity-60"></div>
+    <div class="gold-glow float-orb absolute -right-20 top-28 h-80 w-80 rounded-full opacity-40"></div>
+    <div class="gold-glow absolute -left-24 bottom-12 h-72 w-72 rounded-full opacity-20"></div>
+    <div class="home-shell relative z-10 flex min-h-[680px] items-center px-5 pb-20 pt-32 sm:px-8 lg:px-14">
+      <div class="hero-copy max-w-2xl">
+        <div class="mb-6 flex items-center gap-3">
+          <span class="h-px w-14 gold-rule"></span>
+          <span class="eyebrow">Beauty · Bridal · Grooming</span>
+        </div>
+        <h1 class="display-title max-w-2xl text-[4.5rem] font-medium leading-[.94] text-[#f5ecdc] sm:text-[6rem] lg:text-[7.5rem]">
+          The art<br><span class="gold-gradient italic">of becoming.</span>
+        </h1>
+        <p class="mt-7 max-w-lg text-base leading-7 text-[#b8aa94] sm:text-lg">
+          A single experience for every client, every appointment, and every detail behind the chair.
+        </p>
+        <div class="mt-9 flex flex-wrap items-center gap-3">
+          <a href="/book" class="home-btn inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#a07838] via-[#e5c47a] to-[#c9a45a] px-6 py-3.5 text-sm font-bold text-[#100c08]">
+            <i class="fa-solid fa-calendar-check"></i> Book your experience
+          </a>
+          <a href="#services" class="inline-flex items-center gap-2 rounded-full border border-[#d6b56e]/35 bg-black/20 px-6 py-3.5 text-sm font-semibold text-[#e5c47a] transition hover:border-[#e5c47a]">
+            Explore services <i class="fa-solid fa-arrow-down text-xs"></i>
+          </a>
+        </div>
+        <div class="mt-12 flex flex-wrap items-center gap-x-8 gap-y-4 border-t border-[#d6b56e]/20 pt-5 text-xs text-[#988b78]">
+          <span><i class="fa-solid fa-shield-heart mr-2 text-[#d6b56e]"></i>Certified artists</span>
+          <span><i class="fa-solid fa-sparkles mr-2 text-[#d6b56e]"></i>Curated beauty rituals</span>
+          <span><i class="fa-solid fa-clock mr-2 text-[#d6b56e]"></i>9 AM — 8 PM</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="experience" class="relative border-b border-[#d6b56e]/10 bg-[#090807]">
+    <div class="home-shell px-5 py-12 sm:px-8 lg:px-14 lg:py-16">
+      <div class="grid gap-4 md:grid-cols-3">
+        <div class="home-card rounded-2xl p-6">
+          <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-full border border-[#d6b56e]/25 bg-[#c9a45a]/10 text-[#e5c47a]"><i class="fa-solid fa-calendar-check"></i></div>
+          <div class="eyebrow">01 / Seamless</div>
+          <h2 class="display-title mt-2 text-2xl text-[#f5ecdc]">Book with confidence.</h2>
+          <p class="mt-3 text-sm leading-6 text-[#998c7a]">Choose your service, time, and artist online. Email OTP verification keeps every booking secure.</p>
+        </div>
+        <div class="home-card rounded-2xl p-6">
+          <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-full border border-[#d6b56e]/25 bg-[#c9a45a]/10 text-[#e5c47a]"><i class="fa-solid fa-crown"></i></div>
+          <div class="eyebrow">02 / Personal</div>
+          <h2 class="display-title mt-2 text-2xl text-[#f5ecdc]">Your beauty, remembered.</h2>
+          <p class="mt-3 text-sm leading-6 text-[#998c7a]">Your customer portal keeps appointments, rewards, rescheduling, and feedback in one elegant place.</p>
+        </div>
+        <div class="home-card rounded-2xl p-6">
+          <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-full border border-[#d6b56e]/25 bg-[#c9a45a]/10 text-[#e5c47a]"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+          <div class="eyebrow">03 / Thoughtful</div>
+          <h2 class="display-title mt-2 text-2xl text-[#f5ecdc]">Every detail matters.</h2>
+          <p class="mt-3 text-sm leading-6 text-[#998c7a]">From bridal preparation to a quiet self-care ritual, we design each visit around how you want to feel.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="services" class="relative bg-[#0d0b09]">
+    <div class="home-shell px-5 py-16 sm:px-8 lg:px-14 lg:py-24">
+      <div class="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+        <div>
+          <div class="eyebrow">The collection</div>
+          <h2 class="display-title mt-3 text-4xl text-[#f5ecdc] sm:text-5xl">Signature services</h2>
+        </div>
+        <p class="max-w-sm text-sm leading-6 text-[#998c7a]">Expert hands, considered products, and a result that still feels like you.</p>
+      </div>
+      <div class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {% set service_images = {
+          'Bridal & Professional Makeup': 'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?w=900&q=85&fit=crop&crop=face',
+          'Skincare & Advanced Facials': 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=900&q=85&fit=crop',
+          'Hair Styling & Treatments': 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=900&q=85&fit=crop',
+          'Nail Studio': 'https://images.unsplash.com/photo-1604654894610-df63bc536371?w=900&q=85&fit=crop',
+          'Hair Removal & Grooming': 'https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?w=900&q=85&fit=crop'
+        } %}
+        {% set service_fa_icons = {
+          'Bridal & Professional Makeup': 'fa-wand-magic-sparkles',
+          'Skincare & Advanced Facials': 'fa-spa',
+          'Hair Styling & Treatments': 'fa-scissors',
+          'Nail Studio': 'fa-hand-sparkles',
+          'Hair Removal & Grooming': 'fa-leaf'
+        } %}
+        {% for category, service_list in services.items() %}
+        <a href="/book" class="service-tile group relative min-h-[310px] overflow-hidden rounded-2xl border border-[#d6b56e]/15 bg-[#15110d]">
+          <img src="{{ service_images.get(category, '') }}" alt="{{ category }}" loading="lazy" class="absolute inset-0 h-full w-full object-cover opacity-55" />
+          <div class="absolute inset-0 bg-gradient-to-t from-[#0b0907] via-[#0b0907]/65 to-[#0b0907]/10"></div>
+          <div class="relative flex h-full flex-col justify-between p-6">
+            <div class="flex items-center justify-between">
+              <span class="flex h-10 w-10 items-center justify-center rounded-full border border-[#e5c47a]/30 bg-[#0d0b09]/60 text-[#e5c47a]"><i class="fa-solid {{ service_fa_icons.get(category, 'fa-star') }}"></i></span>
+              <span class="rounded-full border border-[#d6b56e]/30 bg-[#0d0b09]/55 px-3 py-1 text-[10px] font-bold uppercase tracking-[.15em] text-[#d6b56e]">{{ service_list | length }} services</span>
+            </div>
+            <div>
+              <h3 class="display-title text-2xl leading-tight text-[#f5ecdc]">{{ category }}</h3>
+              <div class="mt-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[.16em] text-[#e5c47a]">View collection <i class="fa-solid fa-arrow-right text-[10px] transition group-hover:translate-x-1"></i></div>
+            </div>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section id="promise" class="relative overflow-hidden border-t border-[#d6b56e]/10 bg-[#090807]">
+    <div class="gold-glow absolute -right-32 top-0 h-96 w-96 opacity-20"></div>
+    <div class="home-shell relative px-5 py-16 sm:px-8 lg:px-14 lg:py-24">
+      <div class="grid items-center gap-10 lg:grid-cols-[1.05fr_.95fr]">
+        <div>
+          <div class="eyebrow">A considered experience</div>
+          <h2 class="display-title mt-4 max-w-xl text-4xl leading-tight text-[#f5ecdc] sm:text-6xl">Come for the transformation. Stay for the feeling.</h2>
+          <p class="mt-6 max-w-lg text-base leading-7 text-[#998c7a]">
+            {{ tenant.name if tenant else 'We' }} bring artistry and technology together, so your salon experience feels effortless from the first booking to the final look.
+          </p>
+          <div class="mt-8 flex flex-wrap gap-3">
+            <a href="/book" class="home-btn inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#a07838] via-[#e5c47a] to-[#c9a45a] px-6 py-3.5 text-sm font-bold text-[#100c08]"><i class="fa-solid fa-calendar-check"></i> Reserve your time</a>
+            <a href="/feedback" class="inline-flex items-center gap-2 rounded-full border border-[#d6b56e]/30 px-6 py-3.5 text-sm font-semibold text-[#d6b56e] transition hover:border-[#e5c47a]"><i class="fa-solid fa-star"></i> Share your experience</a>
+          </div>
+        </div>
+        <div class="relative overflow-hidden rounded-3xl border border-[#d6b56e]/20 bg-[#15110d] p-2">
+          <img src="https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1200&q=85&fit=crop" alt="{{ tenant.name if tenant else 'Salon' }} interior" loading="lazy" class="h-[340px] w-full rounded-[1.2rem] object-cover opacity-75 sm:h-[420px]" />
+          <div class="absolute inset-x-8 bottom-8 rounded-2xl border border-[#e5c47a]/25 bg-[#0d0b09]/82 p-5 backdrop-blur-md">
+            <div class="flex items-center justify-between">
+              <div><div class="eyebrow">Open today</div><div class="display-title mt-1 text-2xl text-[#f5ecdc]">9:00 AM — 8:00 PM</div></div>
+              <div class="flex h-11 w-11 items-center justify-center rounded-full border border-[#d6b56e]/25 text-[#e5c47a]"><i class="fa-solid fa-location-dot"></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="border-t border-[#d6b56e]/15 bg-[#0d0b09]">
+    <div class="home-shell flex flex-col gap-5 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-14">
+      <div class="flex items-center gap-3">
+        <img src="{{ tenant_logo_url }}" alt="" class="h-9 w-9 rounded-lg object-cover" />
+        <div>
+          <div class="display-title text-base text-[#f5ecdc]">{{ tenant.name if tenant else 'Salon' }}</div>
+          <div class="text-[10px] uppercase tracking-[.18em] text-[#8f816f]">Where every look tells a story</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-5 text-xs text-[#998c7a]">
+        <a href="/book" class="transition hover:text-[#e5c47a]">Book</a><a href="/feedback" class="transition hover:text-[#e5c47a]">Feedback</a><a href="/my" class="transition hover:text-[#e5c47a]">Customer portal</a>
+      </div>
+    </div>
+  </footer>
+</div>
+{% endblock %}

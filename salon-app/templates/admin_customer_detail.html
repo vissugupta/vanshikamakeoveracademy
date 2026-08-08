@@ -1,0 +1,184 @@
+{% extends "admin_base.html" %}
+{% block title %}{{ customer['name'] }} — {{ tenant.name if tenant else "Salon" }}{% endblock %}
+{% block page_title %}Customer Profile{% endblock %}
+
+{% block content %}
+<!-- Profile card -->
+<div class="bg-white rounded-2xl p-5 card-shadow mb-4" style="border:1px solid #fde68a;">
+  <div class="flex items-center gap-4 mb-4">
+    <div class="w-16 h-16 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-2xl font-display"
+         style="background:linear-gradient(135deg,#9d174d,#be185d);">
+      {{ customer['name'][0].upper() }}
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="font-display text-lg font-bold text-gray-800">{{ customer['name'] }}</div>
+      <div class="text-sm text-gray-500">{{ customer['phone'] }}</div>
+      {% if customer['email'] %}
+      <div class="text-xs text-gray-400 truncate">{{ customer['email'] }}</div>
+      {% endif %}
+    </div>
+    <a href="{{ url_for('admin_customer_edit', cust_id=customer['id']) }}"
+       class="btn-gold text-xs font-semibold px-3 py-2 rounded-xl flex items-center gap-1.5 flex-shrink-0">
+      <i class="fa-solid fa-pen"></i> Edit
+    </a>
+  </div>
+
+  <!-- Stats row -->
+  <div class="grid grid-cols-3 gap-2 mb-4">
+    <div class="text-center p-2 rounded-xl" style="background:#fce7f3;">
+      <div class="text-lg font-bold" style="color:#9d174d;">{{ customer['visit_count'] }}</div>
+      <div class="text-xs text-gray-500">Visits</div>
+    </div>
+    <div class="text-center p-2 rounded-xl" style="background:#fef3c7;">
+      <div class="text-lg font-bold" style="color:#b45309;">{{ customer['loyalty_points'] }}</div>
+      <div class="text-xs text-gray-500">Points</div>
+    </div>
+    <div class="text-center p-2 rounded-xl" style="background:#d1fae5;">
+      <div class="text-lg font-bold" style="color:#065f46;">
+        ₹{{ '%.0f' | format(customer['total_spend']) }}
+      </div>
+      <div class="text-xs text-gray-500">Spend</div>
+    </div>
+  </div>
+
+  <!-- Details -->
+  <div class="space-y-2 text-sm">
+    {% if customer['birthday'] %}
+    <div class="flex items-center gap-2 text-gray-600">
+      <i class="fa-solid fa-cake-candles w-4 text-center" style="color:#d97706;"></i>
+      Birthday: {{ customer['birthday'] }}
+    </div>
+    {% endif %}
+    {% if customer['last_visit_date'] %}
+    <div class="flex items-center gap-2 text-gray-600">
+      <i class="fa-solid fa-calendar-check w-4 text-center" style="color:#d97706;"></i>
+      Last visit: {{ customer['last_visit_date'] }}
+    </div>
+    {% endif %}
+    <div class="flex items-center gap-2 text-gray-400 text-xs">
+      <i class="fa-solid fa-clock w-4 text-center"></i>
+      Customer since {{ customer['created_at'][:10] if customer['created_at'] else '—' }}
+    </div>
+  </div>
+
+  {% if customer['notes'] %}
+  <div class="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
+    <i class="fa-solid fa-note-sticky mr-1"></i> {{ customer['notes'] }}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Membership section -->
+<div class="bg-white rounded-2xl p-4 card-shadow mb-4"
+     style="border:1px solid {% if active_membership %}#6ee7b7{% else %}#fde68a{% endif %};">
+  <div class="flex items-center gap-2 mb-2">
+    <i class="fa-solid fa-gem" style="color:{% if active_membership %}#065f46{% else %}#b45309{% endif %};"></i>
+    <span class="font-semibold text-sm text-gray-700">Membership</span>
+    {% if active_membership %}
+    <span class="badge badge-green ml-auto" style="font-size:10px;">Active</span>
+    {% endif %}
+  </div>
+
+  {% if active_membership %}
+  <div class="rounded-xl p-3 mb-3" style="background:#d1fae5;">
+    <div class="font-bold text-sm" style="color:#065f46;">💎 {{ active_membership.plan_name }}</div>
+    <div class="text-xs text-emerald-700 mt-0.5">
+      {{ active_membership.discount_pct|int }}% discount on all services
+    </div>
+    <div class="flex gap-3 mt-1.5 text-xs text-gray-500">
+      <span>From {{ active_membership.start_date }}</span>
+      <span>→ Expires <strong>{{ active_membership.expiry_date }}</strong></span>
+    </div>
+  </div>
+  <form method="post" action="{{ url_for('admin_membership_cancel', enroll_id=active_membership.id) }}"
+        onsubmit="return confirm('Cancel this membership?')">
+    <button type="submit" class="text-xs py-1.5 px-3 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">
+      Cancel Membership
+    </button>
+  </form>
+  {% elif membership_plans %}
+  <div class="text-xs text-gray-400 mb-3">No active membership. Enroll this customer in a plan:</div>
+  <form method="post" action="{{ url_for('admin_membership_enroll') }}" class="flex gap-2">
+    <input type="hidden" name="customer_id" value="{{ customer['id'] }}"/>
+    <select name="plan_id" required class="flex-1 border border-gray-200 rounded-xl px-2 py-2 text-xs">
+      <option value="">Select plan…</option>
+      {% for p in membership_plans %}
+      <option value="{{ p.id }}">{{ p.name }} — ₹{{ '%.0f'|format(p.price) }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn-rose px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1">
+      <i class="fa-solid fa-plus"></i> Enroll
+    </button>
+  </form>
+  {% else %}
+  <div class="text-xs text-gray-400">
+    No membership plans set up yet.
+    <a href="{{ url_for('admin_memberships') }}" class="text-rose-600 font-semibold">Create plans →</a>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Appointment history -->
+<h2 class="font-display text-base font-bold mb-3 flex items-center gap-2" style="color:#9d174d;">
+  <i class="fa-solid fa-calendar-check text-sm"></i>
+  Appointment History
+  <span class="ml-auto text-xs font-normal text-gray-400">{{ appointments|length }} total</span>
+</h2>
+
+{% if appointments %}
+<div class="space-y-2 mb-5">
+  {% for a in appointments %}
+  <div class="bg-white rounded-2xl p-3 card-shadow" style="border:1px solid #fde68a;">
+    <div class="font-semibold text-sm text-gray-800">{{ a['service'] }}</div>
+    <div class="text-xs text-gray-400 mb-2">{{ a['category'] }}</div>
+    <div class="flex gap-2 flex-wrap">
+      <span class="badge badge-rose" style="font-size:10px;">📅 {{ a['date'] }}</span>
+      <span class="badge badge-gold" style="font-size:10px;">⏰ {{ a['time'] }}</span>
+      <span class="badge badge-gray" style="font-size:10px;">#{{ a['id'] }}</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-2xl p-6 text-center card-shadow mb-5" style="border:1px solid #fde68a;">
+  <div class="text-gray-400 text-sm">No appointments yet</div>
+</div>
+{% endif %}
+
+<!-- Feedback -->
+{% if feedbacks %}
+<h2 class="font-display text-base font-bold mb-3 flex items-center gap-2" style="color:#9d174d;">
+  <i class="fa-solid fa-star text-sm"></i> Reviews
+</h2>
+<div class="space-y-2">
+  {% for fb in feedbacks %}
+  <div class="bg-white rounded-2xl p-3 card-shadow" style="border:1px solid #fde68a;">
+    <div class="flex items-center gap-1 mb-1">
+      {% for i in range(1,6) %}
+      <span class="{% if i <= fb['rating'] %}star-filled{% else %}star-empty{% endif %}">★</span>
+      {% endfor %}
+    </div>
+    <div class="text-xs text-pink-600">{{ fb['service'] }}</div>
+    {% if fb['comment'] %}
+    <div class="text-sm text-gray-600 italic mt-1">"{{ fb['comment'] }}"</div>
+    {% endif %}
+    {% if fb['media_path'] %}
+    <div class="mt-2 rounded-xl overflow-hidden" style="background:#fffbf0;">
+      {% if fb['media_type'] == 'video' %}
+      <video src="{{ url_for('feedback_upload', filename=fb['media_path']) }}"
+             controls playsinline class="w-full max-h-56 object-contain"></video>
+      {% else %}
+      <a href="{{ url_for('feedback_upload', filename=fb['media_path']) }}" target="_blank" rel="noopener">
+        <img src="{{ url_for('feedback_upload', filename=fb['media_path']) }}"
+             alt="Photo shared in review"
+             class="w-full max-h-56 object-contain" loading="lazy" />
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+    <div class="text-xs text-gray-300 mt-1">{{ fb['date'] }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

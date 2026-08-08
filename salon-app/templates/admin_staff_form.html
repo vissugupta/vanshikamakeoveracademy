@@ -1,0 +1,47 @@
+{% extends "admin_base.html" %}
+{% block title %}Add Staff — {{ tenant.name if tenant else "Salon" }}{% endblock %}
+{% block page_title %}Add Staff Member{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-2xl p-5 card-shadow" style="border:1px solid #fde68a;">
+  <form method="post" action="{{ url_for('admin_staff_new') }}" class="space-y-4">
+    <div>
+      <label class="text-sm font-semibold text-gray-700">Full Name *</label>
+      <input name="name" required placeholder="e.g. Priya Sharma"
+             class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mt-1"/>
+    </div>
+    <div>
+      <label class="text-sm font-semibold text-gray-700">Phone Number</label>
+      <input name="phone" placeholder="10-digit mobile number"
+             class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mt-1"/>
+    </div>
+    <div>
+      <label class="text-sm font-semibold text-gray-700">Role / Designation</label>
+      <select name="role" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mt-1">
+        <option value="Stylist">Stylist</option>
+        <option value="Senior Stylist">Senior Stylist</option>
+        <option value="Makeup Artist">Makeup Artist</option>
+        <option value="Nail Technician">Nail Technician</option>
+        <option value="Skin Therapist">Skin Therapist</option>
+        <option value="Hair Technician">Hair Technician</option>
+        <option value="Receptionist">Receptionist</option>
+        <option value="Manager">Manager</option>
+      </select>
+    </div>
+    <div>
+      <label class="text-sm font-semibold text-gray-700">Commission %</label>
+      <div class="relative mt-1">
+        <input type="number" name="commission_pct" min="0" max="100" step="0.1" value="0"
+               class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm pr-8"/>
+        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+      </div>
+      <p class="text-xs text-gray-400 mt-1">Percentage of each invoice total earned as commission</p>
+    </div>
+    <button type="submit" class="btn-rose w-full py-3 rounded-xl font-bold text-base mt-2">
+      <i class="fa-solid fa-plus mr-2"></i>Add Staff Member
+    </button>
+    <a href="{{ url_for('admin_staff') }}"
+       class="block text-center text-sm text-gray-400 mt-2 hover:text-gray-600">Cancel</a>
+  </form>
+</div>
+{% endblock %}

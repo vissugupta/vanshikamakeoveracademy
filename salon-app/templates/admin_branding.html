@@ -1,0 +1,228 @@
+{% extends "admin_base.html" %}
+{% block title %}Branding — {{ tenant.name if tenant else 'Salon' }}{% endblock %}
+{% block page_title %}Branding{% endblock %}
+
+{% block head %}
+<style>
+  .color-preview { width: 40px; height: 40px; border-radius: 8px; border: 1.5px solid rgba(201,169,110,.35); display: inline-block; vertical-align: middle; }
+  .preview-card { background: var(--bg-preview, #0a0a0a); border: 1px solid rgba(201,169,110,.2); border-radius: 16px; padding: 20px; }
+  .preview-nav { display: flex; align-items: center; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid rgba(201,169,110,.15); margin-bottom: 16px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+
+  <!-- Header -->
+  <div class="flex items-center gap-3 mb-2">
+    <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+         style="background:linear-gradient(135deg,#a07840,#d4af37);">
+      <i class="fa-solid fa-palette text-sm" style="color:#0a0a0a;"></i>
+    </div>
+    <div>
+      <h1 class="font-display text-xl font-bold" style="color:#f5f0e8;">Branding Settings</h1>
+      <p class="text-xs" style="color:#6e6058;">Customise your salon's name, logo, and colours</p>
+    </div>
+  </div>
+
+  <form method="POST" enctype="multipart/form-data" action="{{ url_for('admin_branding') }}">
+
+    <!-- Salon Identity -->
+    <div class="stat-card space-y-4">
+      <div class="ornament-line mb-2">Salon Identity</div>
+
+      <div>
+        <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">Salon Name</label>
+        <input type="text" name="name" required value="{{ tenant.name if tenant else '' }}"
+               class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+               style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">Tagline / Subtitle</label>
+        <input type="text" name="tagline" value="{{ tenant.tagline if tenant else '' }}"
+               placeholder="e.g. Makeover Academy"
+               class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+               style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">Phone</label>
+          <input type="text" name="phone" value="{{ tenant.phone if tenant else '' }}"
+                 class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+                 style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">Contact Email</label>
+          <input type="email" name="email" value="{{ tenant.email if tenant else '' }}"
+                 class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+                 style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">Address</label>
+        <input type="text" name="address" value="{{ tenant.address if tenant else '' }}"
+               class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+               style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+      </div>
+    </div>
+
+    <!-- Logo -->
+    <div class="stat-card space-y-4">
+      <div class="ornament-line mb-2">Logo</div>
+      <div class="flex items-center gap-5">
+        <div>
+          <div class="text-xs mb-2" style="color:#6e6058;">Current Logo</div>
+          <img src="{{ tenant_logo_url }}" alt="Current logo"
+               class="w-16 h-16 rounded-xl object-cover"
+               style="border:1.5px solid rgba(201,169,110,.4);" />
+        </div>
+        <div class="flex-1">
+          <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">Upload New Logo</label>
+          <input type="file" name="logo" accept=".jpg,.jpeg,.png,.webp,.gif"
+                 class="w-full text-sm" style="color:#e8dcc8;" />
+          <p class="text-xs mt-1" style="color:#5e5248;">JPG, PNG or WebP. Square images work best (e.g. 200×200 px).</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Colours -->
+    <div class="stat-card space-y-4">
+      <div class="ornament-line mb-2">Theme Colours</div>
+
+      <div class="grid grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs font-semibold mb-2" style="color:#c9a96e;">Primary Colour</label>
+          <div class="flex items-center gap-2">
+            <input type="color" name="primary_color"
+                   id="primaryColor"
+                   value="{{ tenant.primary_color if tenant else '#c9a96e' }}"
+                   class="w-10 h-10 rounded-lg cursor-pointer border-0 bg-transparent"
+                   style="padding:2px;" />
+            <input type="text" id="primaryColorText"
+                   value="{{ tenant.primary_color if tenant else '#c9a96e' }}"
+                   class="flex-1 rounded-xl px-3 py-2 text-xs outline-none"
+                   style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;"
+                   oninput="syncColor('primaryColor','primaryColorText')" />
+          </div>
+          <p class="text-xs mt-1" style="color:#5e5248;">Buttons, icons, gold accents</p>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-2" style="color:#c9a96e;">Accent Colour</label>
+          <div class="flex items-center gap-2">
+            <input type="color" name="accent_color"
+                   id="accentColor"
+                   value="{{ tenant.accent_color if tenant else '#d4af37' }}"
+                   class="w-10 h-10 rounded-lg cursor-pointer border-0 bg-transparent"
+                   style="padding:2px;" />
+            <input type="text" id="accentColorText"
+                   value="{{ tenant.accent_color if tenant else '#d4af37' }}"
+                   class="flex-1 rounded-xl px-3 py-2 text-xs outline-none"
+                   style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;"
+                   oninput="syncColor('accentColor','accentColorText')" />
+          </div>
+          <p class="text-xs mt-1" style="color:#5e5248;">Shimmer, highlights</p>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-2" style="color:#c9a96e;">Background Colour</label>
+          <div class="flex items-center gap-2">
+            <input type="color" name="bg_color"
+                   id="bgColor"
+                   value="{{ tenant.bg_color if tenant else '#0a0a0a' }}"
+                   class="w-10 h-10 rounded-lg cursor-pointer border-0 bg-transparent"
+                   style="padding:2px;" />
+            <input type="text" id="bgColorText"
+                   value="{{ tenant.bg_color if tenant else '#0a0a0a' }}"
+                   class="flex-1 rounded-xl px-3 py-2 text-xs outline-none"
+                   style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;"
+                   oninput="syncColor('bgColor','bgColorText')" />
+          </div>
+          <p class="text-xs mt-1" style="color:#5e5248;">Page background</p>
+        </div>
+      </div>
+
+      <!-- Live Preview -->
+      <div class="mt-4">
+        <div class="text-xs font-semibold mb-2" style="color:#c9a96e;">Live Preview</div>
+        <div id="brandPreview" class="preview-card">
+          <div class="preview-nav">
+            <div class="w-9 h-9 rounded-lg flex-shrink-0 overflow-hidden">
+              <img src="{{ tenant_logo_url }}" class="w-full h-full object-cover" />
+            </div>
+            <div>
+              <div class="font-bold text-sm" id="previewName" style="color:#f5f0e8;">{{ tenant.name if tenant else 'Salon' }}</div>
+              <div class="text-xs" id="previewTagline" style="color:#c9a96e;">{{ tenant.tagline if tenant else 'Your Tagline' }}</div>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" id="previewBtn"
+                    class="px-4 py-2 rounded-full text-xs font-bold"
+                    style="background:linear-gradient(135deg,#a07840,#c9a96e,#d4af37);color:#0a0a0a;">
+              Book Now
+            </button>
+            <button type="button"
+                    class="px-4 py-2 rounded-full text-xs font-semibold"
+                    style="border:1px solid rgba(201,169,110,.3);color:#c9a96e;">
+              View Services
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-3">
+      <a href="{{ url_for('admin_dashboard') }}"
+         class="px-5 py-2.5 rounded-xl text-sm font-semibold"
+         style="background:#1e1e1e;border:1px solid #333;color:#e8dcc8;">
+        Cancel
+      </a>
+      <button type="submit" class="btn-gold px-6 py-2.5 rounded-xl text-sm">
+        <i class="fa-solid fa-floppy-disk mr-2"></i>Save Branding
+      </button>
+    </div>
+
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function syncColor(pickerId, textId) {
+  const val = document.getElementById(textId).value;
+  if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+    document.getElementById(pickerId).value = val;
+    updatePreview();
+  }
+}
+document.querySelectorAll('input[type=color]').forEach(function(picker) {
+  picker.addEventListener('input', function() {
+    const textId = this.id + 'Text';
+    document.getElementById(textId).value = this.value;
+    updatePreview();
+  });
+});
+document.getElementById('primaryColor').addEventListener('input', updatePreview);
+document.getElementById('accentColor').addEventListener('input', updatePreview);
+document.getElementById('bgColor').addEventListener('input', updatePreview);
+document.querySelectorAll('[name=name]')[0].addEventListener('input', function() {
+  document.getElementById('previewName').textContent = this.value || 'Salon';
+});
+document.querySelectorAll('[name=tagline]')[0].addEventListener('input', function() {
+  document.getElementById('previewTagline').textContent = this.value || 'Your Tagline';
+});
+function updatePreview() {
+  const primary = document.getElementById('primaryColor').value;
+  const accent  = document.getElementById('accentColor').value;
+  const bg      = document.getElementById('bgColor').value;
+  const preview = document.getElementById('brandPreview');
+  preview.style.background = bg;
+  preview.style.setProperty('--bg-preview', bg);
+  document.getElementById('previewBtn').style.background =
+    `linear-gradient(135deg, ${accent}, ${primary})`;
+  document.getElementById('previewTagline').style.color = primary;
+}
+updatePreview();
+</script>
+{% endblock %}

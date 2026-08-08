@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+  <title>Staff Login — {{ tenant.name if tenant else 'Salon' }}</title>
+  <link rel="icon" type="image/jpeg" href="{{ tenant_logo_url or url_for('static', filename='brand-logo.jpeg') }}"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    * { box-sizing:border-box; }
+    body { font-family:'Inter',sans-serif; background:#0a0a0a; color:#f5f0e8; min-height:100vh; }
+    .font-display { font-family:'Playfair Display',serif; }
+    .gold-line { height:2px; background:linear-gradient(90deg,#a07840,#d4af37,#f0d880,#d4af37,#a07840); }
+    input { background:#1e1e1e !important; color:#f5f0e8 !important; border-color:#333 !important; font-size:16px !important; }
+    input::placeholder { color:#5e5248 !important; }
+  </style>
+</head>
+<body class="flex items-center justify-center p-6 min-h-screen" style="background:radial-gradient(ellipse at top,#111111 0%,#0a0a0a 70%);">
+  <div class="w-full max-w-sm">
+
+    <!-- Card -->
+    <div class="rounded-3xl overflow-hidden mb-6" style="background:#111111; border:1px solid rgba(201,169,110,.2); box-shadow:0 24px 64px rgba(0,0,0,.8),0 0 0 1px rgba(201,169,110,.1);">
+
+      <!-- Logo header -->
+      <div class="px-6 py-8 text-center" style="background:#0d0d0d; border-bottom:1px solid rgba(201,169,110,.15);">
+        <div class="gold-line mb-6"></div>
+        <img src="{{ tenant_logo_url or url_for('static', filename='brand-logo.jpeg') }}"
+             alt="{{ tenant.name if tenant else 'Salon' }} logo"
+             class="mx-auto w-24 h-24 rounded-2xl object-cover mb-4"
+             style="border:1.5px solid rgba(201,169,110,.5); box-shadow:0 0 24px rgba(212,175,55,.25);" />
+        <h1 class="font-display text-2xl font-bold" style="color:#f5f0e8;">{{ tenant.name if tenant else 'Salon' }}</h1>
+        <p class="text-xs mt-2 tracking-widest uppercase" style="color:#c9a96e;">Staff Portal</p>
+        <div class="gold-line mt-4"></div>
+      </div>
+
+      <!-- Form -->
+      <div class="px-6 py-6">
+        {% if error %}
+        <div class="rounded-xl px-4 py-2.5 mb-4 text-sm" style="background:#1f0d0d; border:1px solid #5a2d2d; color:#fca5a5;">
+          <i class="fa-solid fa-circle-exclamation mr-2"></i>{{ error }}
+        </div>
+        {% endif %}
+
+        <form method="post" class="space-y-4">
+          <div>
+            <label class="text-xs font-semibold block mb-1.5 tracking-wider uppercase" style="color:#c9a96e;">
+              <i class="fa-solid fa-phone mr-1"></i> Phone Number
+            </label>
+            <input type="tel" name="phone" required placeholder="Your registered phone number"
+                   class="w-full rounded-xl px-4 py-3 text-sm focus:outline-none transition"
+                   style="border:1px solid rgba(201,169,110,.25);"
+                   onfocus="this.style.borderColor='rgba(212,175,55,.6)'"
+                   onblur="this.style.borderColor='rgba(201,169,110,.25)'"/>
+          </div>
+          <div>
+            <label class="text-xs font-semibold block mb-1.5 tracking-wider uppercase" style="color:#c9a96e;">
+              <i class="fa-solid fa-lock mr-1"></i> Portal PIN
+            </label>
+            <input type="password" name="pin" required placeholder="4–6 digit PIN" maxlength="6"
+                   class="w-full rounded-xl px-4 py-3 text-sm focus:outline-none transition"
+                   style="border:1px solid rgba(201,169,110,.25);"
+                   onfocus="this.style.borderColor='rgba(212,175,55,.6)'"
+                   onblur="this.style.borderColor='rgba(201,169,110,.25)'"
+                   inputmode="numeric"/>
+          </div>
+          <button type="submit"
+                  class="w-full py-3.5 rounded-xl font-bold text-sm mt-2 transition"
+                  style="background:linear-gradient(135deg,#a07840,#c9a96e,#d4af37); color:#0a0a0a; box-shadow:0 4px 20px rgba(201,169,110,.3);">
+            <i class="fa-solid fa-unlock mr-2"></i>Sign In to Staff Portal
+          </button>
+        </form>
+
+        <p class="text-center text-xs mt-4" style="color:#5e5248;">
+          Contact your manager if you don't have a PIN
+        </p>
+      </div>
+    </div>
+
+    <p class="text-center text-xs" style="color:#5e5248;">
+      <a href="{{ url_for('admin_login') }}" class="hover:underline" style="color:#c9a96e;">
+        <i class="fa-solid fa-shield-halved mr-1"></i>Owner / Admin login →
+      </a>
+    </p>
+  </div>
+</body>
+</html>

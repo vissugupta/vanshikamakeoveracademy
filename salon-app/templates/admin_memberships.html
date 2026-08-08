@@ -1,0 +1,268 @@
+{% extends "admin_base.html" %}
+{% block title %}Memberships — {{ tenant.name if tenant else "Salon" }}{% endblock %}
+{% block page_title %}Memberships{% endblock %}
+
+{% block content %}
+
+<!-- Revenue + alert summary -->
+<div class="grid grid-cols-2 gap-3 mb-4">
+  <div class="stat-card text-center" style="border-color:#6ee7b7;">
+    <div class="text-xl font-bold font-display" style="color:#065f46;">₹{{ '%.0f'|format(membership_revenue) }}</div>
+    <div class="text-xs text-gray-500 mt-0.5">Membership Revenue</div>
+  </div>
+  <div class="stat-card text-center" style="border-color:{% if expiring_soon %}#fca5a5{% else %}#fde68a{% endif %};">
+    <div class="text-xl font-bold font-display" style="color:{% if expiring_soon %}#991b1b{% else %}#b45309{% endif %};">
+      {{ expiring_soon|length }}
+    </div>
+    <div class="text-xs text-gray-500 mt-0.5">Expiring in 7 Days</div>
+  </div>
+</div>
+
+<!-- Expiring soon alert -->
+{% if expiring_soon %}
+<div class="bg-red-50 border border-red-200 rounded-2xl p-3 mb-4">
+  <div class="flex items-center gap-2 mb-2">
+    <i class="fa-solid fa-triangle-exclamation text-red-500"></i>
+    <span class="font-semibold text-red-700 text-sm">Memberships expiring soon</span>
+  </div>
+  <div class="space-y-2">
+    {% for e in expiring_soon %}
+    <div class="flex items-center gap-2 bg-white rounded-xl p-2.5" style="border:1px solid #fca5a5;">
+      <div class="flex-1 min-w-0">
+        <div class="font-semibold text-sm text-gray-800 truncate">{{ e.cust_name }}</div>
+        <div class="text-xs text-gray-500">{{ e.plan_name }} · Expires {{ e.expiry_date }}</div>
+      </div>
+      <form method="post" action="{{ url_for('admin_membership_reminder', enroll_id=e.id) }}">
+        <button type="submit"
+                class="text-xs font-semibold py-1.5 px-2.5 rounded-lg text-white flex items-center gap-1"
+                style="background:#25D366;">
+          <i class="fa-brands fa-whatsapp text-xs"></i> Remind
+        </button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Plans section -->
+<div class="flex items-center gap-2 mb-3">
+  <h2 class="font-display text-base font-bold" style="color:#9d174d;">
+    <i class="fa-solid fa-gem mr-2 text-sm"></i>Membership Plans
+  </h2>
+  <button onclick="document.getElementById('add-plan-modal').classList.remove('hidden')"
+          class="ml-auto btn-rose px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1">
+    <i class="fa-solid fa-plus"></i> New Plan
+  </button>
+</div>
+
+{% if plans %}
+<div class="space-y-2 mb-5">
+  {% for p in plans %}
+  <div class="bg-white rounded-2xl p-4 card-shadow" style="border:1px solid #fde68a;">
+    <div class="flex items-start gap-3">
+      <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center"
+           style="background:linear-gradient(135deg,#fce7f3,#fde68a);">
+        <i class="fa-solid fa-gem text-sm" style="color:#b45309;"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="font-semibold text-gray-800">{{ p.name }}</div>
+        <div class="flex gap-3 flex-wrap mt-1">
+          <span class="text-sm font-bold" style="color:#9d174d;">₹{{ '%.0f'|format(p.price) }}</span>
+          <span class="text-xs text-gray-500">{{ p.validity_days }} days</span>
+          {% if p.discount_pct > 0 %}
+          <span class="badge badge-gold" style="font-size:10px;">{{ p.discount_pct|int }}% off all services</span>
+          {% endif %}
+        </div>
+        {% if p.description %}
+        <div class="text-xs text-gray-400 mt-1 italic">{{ p.description }}</div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="flex gap-2 mt-3 pt-3 border-t border-gray-100">
+      <button onclick="openEditPlan({{ p.id }}, '{{ p.name | e }}', {{ p.price }}, {{ p.validity_days }}, {{ p.discount_pct }}, '{{ p.description or '' | e }}')"
+              class="flex-1 text-xs font-semibold py-1.5 rounded-lg border border-amber-200 text-amber-700 hover:bg-amber-50">
+        <i class="fa-solid fa-pen mr-1"></i>Edit
+      </button>
+      <form method="post" action="{{ url_for('admin_membership_plan_delete', plan_id=p.id) }}"
+            onsubmit="return confirm('Remove plan {{ p.name | e }}?')">
+        <button type="submit" class="text-xs font-semibold py-1.5 px-3 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-2xl p-6 card-shadow text-center mb-5" style="border:1px solid #fde68a;">
+  <div class="text-3xl mb-2">💎</div>
+  <div class="text-sm font-semibold text-gray-600 mb-1">No membership plans yet</div>
+  <div class="text-xs text-gray-400">Create a plan to start offering memberships</div>
+</div>
+{% endif %}
+
+<!-- Enroll customer section -->
+{% if plans %}
+<div class="flex items-center gap-2 mb-3">
+  <h2 class="font-display text-base font-bold" style="color:#9d174d;">
+    <i class="fa-solid fa-user-plus mr-2 text-sm"></i>Enroll Customer
+  </h2>
+</div>
+<div class="bg-white rounded-2xl p-4 card-shadow mb-5" style="border:1px solid #fde68a;">
+  <form method="post" action="{{ url_for('admin_membership_enroll') }}" class="grid grid-cols-2 gap-3">
+    <div>
+      <label class="text-xs font-semibold text-gray-600">Customer</label>
+      <select name="customer_id" required class="w-full border border-gray-200 rounded-xl px-2 py-2 text-sm mt-1">
+        <option value="">Select customer…</option>
+        {% for c in customers %}
+        <option value="{{ c.id }}">{{ c.name }} ({{ c.phone }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="text-xs font-semibold text-gray-600">Plan</label>
+      <select name="plan_id" required class="w-full border border-gray-200 rounded-xl px-2 py-2 text-sm mt-1">
+        <option value="">Select plan…</option>
+        {% for p in plans %}
+        <option value="{{ p.id }}">{{ p.name }} — ₹{{ '%.0f'|format(p.price) }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="col-span-2 btn-rose py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2">
+      <i class="fa-solid fa-user-plus"></i> Enroll Customer
+    </button>
+  </form>
+</div>
+{% endif %}
+
+<!-- Active enrollments -->
+<h2 class="font-display text-base font-bold mb-3" style="color:#9d174d;">
+  <i class="fa-solid fa-list-check mr-2 text-sm"></i>All Enrollments
+</h2>
+{% if enrollments %}
+<div class="space-y-2">
+  {% for e in enrollments %}
+  <div class="bg-white rounded-2xl p-3 card-shadow" style="border:1px solid {% if e.status == 'active' %}#fde68a{% else %}#e5e7eb{% endif %};">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-sm"
+           style="background:{% if e.status == 'active' %}linear-gradient(135deg,#9d174d,#be185d){% else %}#9ca3af{% endif %};">
+        {{ e.cust_name[0].upper() }}
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-semibold text-sm text-gray-800 truncate">{{ e.cust_name }}</span>
+          <span class="badge {% if e.status == 'active' %}badge-green{% elif e.status == 'cancelled' %}badge-gray{% else %}badge-red{% endif %}" style="font-size:10px;">
+            {{ e.status | capitalize }}
+          </span>
+          {% if e.discount_pct > 0 %}
+          <span class="badge badge-gold" style="font-size:10px;">{{ e.discount_pct|int }}% off</span>
+          {% endif %}
+        </div>
+        <div class="text-xs text-gray-500 mt-0.5">{{ e.plan_name }}</div>
+        <div class="text-xs text-gray-400">{{ e.start_date }} → {{ e.expiry_date }}</div>
+      </div>
+      {% if e.status == 'active' %}
+      <form method="post" action="{{ url_for('admin_membership_cancel', enroll_id=e.id) }}"
+            onsubmit="return confirm('Cancel this membership?')">
+        <button type="submit" class="text-xs py-1.5 px-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 flex-shrink-0">
+          Cancel
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-2xl p-6 card-shadow text-center" style="border:1px solid #fde68a;">
+  <div class="text-sm text-gray-400">No enrollments yet</div>
+</div>
+{% endif %}
+
+<!-- Add Plan Modal -->
+<div id="add-plan-modal" class="hidden fixed inset-0 z-50 flex items-end justify-center">
+  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="document.getElementById('add-plan-modal').classList.add('hidden')"></div>
+  <div class="relative bg-white rounded-t-3xl w-full max-w-lg p-5 pb-8">
+    <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+    <h2 class="font-display font-bold text-lg mb-4" style="color:#9d174d;">New Membership Plan</h2>
+    <form method="post" action="{{ url_for('admin_membership_plan_add') }}" class="space-y-3">
+      <div>
+        <label class="text-xs font-semibold text-gray-600">Plan Name *</label>
+        <input name="name" required placeholder="e.g. Gold Monthly" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Price (₹)</label>
+          <input type="number" name="price" min="0" step="0.01" value="999" class="w-full border border-gray-200 rounded-xl px-2 py-2 text-sm mt-1"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Days</label>
+          <input type="number" name="validity_days" min="1" value="30" class="w-full border border-gray-200 rounded-xl px-2 py-2 text-sm mt-1"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Discount %</label>
+          <input type="number" name="discount_pct" min="0" max="100" step="0.1" value="10" class="w-full border border-gray-200 rounded-xl px-2 py-2 text-sm mt-1"/>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-gray-600">Description</label>
+        <input name="description" placeholder="What's included…" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+      </div>
+      <button type="submit" class="btn-rose w-full py-3 rounded-xl font-semibold">
+        <i class="fa-solid fa-plus mr-1"></i> Create Plan
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Plan Modal -->
+<div id="edit-plan-modal" class="hidden fixed inset-0 z-50 flex items-end justify-center">
+  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="document.getElementById('edit-plan-modal').classList.add('hidden')"></div>
+  <div class="relative bg-white rounded-t-3xl w-full max-w-lg p-5 pb-8">
+    <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+    <h2 class="font-display font-bold text-lg mb-4" style="color:#9d174d;">Edit Plan</h2>
+    <form id="edit-plan-form" method="post" class="space-y-3">
+      <div>
+        <label class="text-xs font-semibold text-gray-600">Plan Name *</label>
+        <input id="ep-name" name="name" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Price (₹)</label>
+          <input type="number" id="ep-price" name="price" min="0" step="0.01" class="w-full border border-gray-200 rounded-xl px-2 py-2 text-sm mt-1"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Days</label>
+          <input type="number" id="ep-days" name="validity_days" min="1" class="w-full border border-gray-200 rounded-xl px-2 py-2 text-sm mt-1"/>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600">Discount %</label>
+          <input type="number" id="ep-disc" name="discount_pct" min="0" max="100" step="0.1" class="w-full border border-gray-200 rounded-xl px-2 py-2 text-sm mt-1"/>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-gray-600">Description</label>
+        <input id="ep-desc" name="description" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1"/>
+      </div>
+      <button type="submit" class="btn-gold w-full py-3 rounded-xl font-semibold">
+        <i class="fa-solid fa-floppy-disk mr-1"></i> Save Changes
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openEditPlan(id, name, price, days, disc, desc) {
+  document.getElementById('ep-name').value  = name;
+  document.getElementById('ep-price').value = price;
+  document.getElementById('ep-days').value  = days;
+  document.getElementById('ep-disc').value  = disc;
+  document.getElementById('ep-desc').value  = desc;
+  document.getElementById('edit-plan-form').action = '/admin/memberships/plans/' + id + '/edit';
+  document.getElementById('edit-plan-modal').classList.remove('hidden');
+}
+</script>
+{% endblock %}

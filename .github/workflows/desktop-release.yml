@@ -1,0 +1,99 @@
+name: Desktop Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'   # triggers on tags like v1.2.3
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to create GitHub Releases and upload assets
+
+jobs:
+  # ── Windows build ────────────────────────────────────────────────────────────
+  build-win:
+    name: Build Windows installer
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        working-directory: salon-app
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install Node dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build PyInstaller server binary
+        working-directory: desktop
+        run: npm run build:server
+
+      - name: Build Windows installer
+        working-directory: desktop
+        run: npx electron-builder --win --publish never
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: vanshika-makeover-windows
+          path: desktop/dist/*.exe
+          if-no-files-found: error
+
+  # ── Linux build ──────────────────────────────────────────────────────────────
+  build-linux:
+    name: Build Linux packages
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        working-directory: salon-app
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install Node dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build PyInstaller server binary
+        working-directory: desktop
+        run: npm run build:server
+
+      - name: Build Linux packages
+        working-directory: desktop
+        run: npx electron-builder --linux --publish never
+
+      - name: Upload Linux packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: vanshika-makeover-linux
+          path: |
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb
+          if-no-files-found: error

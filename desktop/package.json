@@ -1,0 +1,91 @@
+{
+  "name": "vanshika-makeover-desktop",
+  "version": "1.0.0",
+  "description": "Vanshika Makeover Academy — Desktop App (Electron wrapper for the Flask salon ERP)",
+  "homepage": "https://vanshikamakeoveracademy.com",
+  "author": {
+    "name": "Vanshika Makeover Academy",
+    "email": "info.vanshikamakeoveracademy@gmail.com"
+  },
+  "main": "main.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "electron . --no-sandbox",
+    "build:server": "python build_server.py",
+    "predist:linux": "npm run build:server",
+    "predist:win": "npm run build:server",
+    "dist:linux": "electron-builder --linux --publish never",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:mac": "node build_mac.js",
+    "release": "electron-builder --linux --win --publish always"
+  },
+  "build": {
+    "appId": "com.vanshika.makeover.academy",
+    "productName": "Vanshika Makeover Academy",
+    "copyright": "Copyright © 2024 Vanshika Makeover Academy",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "loading.html"
+    ],
+    "extraResources": [
+      {
+        "from": "build-resources",
+        "to": "server",
+        "filter": [
+          "salon-server",
+          "salon-server.exe"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.business"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Office",
+      "maintainer": "Vanshika Makeover Academy <info.vanshikamakeoveracademy@gmail.com>"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "vanshika-makeover-academy",
+      "repo": "salon-app-releases",
+      "releaseType": "release"
+    }
+  },
+  "overrides": {
+    "tar": "^7.4.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  }
+}

@@ -1,0 +1,402 @@
+{% extends "admin_base.html" %}
+{% block title %}Messaging & Notifications — {{ tenant.name if tenant else 'Salon' }}{% endblock %}
+{% block page_title %}Messaging &amp; Notifications{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+
+  <!-- Header -->
+  <div class="flex items-center gap-3 mb-2">
+    <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+         style="background:linear-gradient(135deg,#a07840,#d4af37);">
+      <i class="fa-solid fa-bell text-sm" style="color:#0a0a0a;"></i>
+    </div>
+    <div>
+      <h1 class="font-display text-xl font-bold" style="color:#f5f0e8;">Messaging &amp; Notifications</h1>
+      <p class="text-xs" style="color:#6e6058;">Enter your credentials to enable email, SMS, and WhatsApp alerts. Passwords are stored encrypted.</p>
+    </div>
+  </div>
+
+  <form method="POST" action="{{ url_for('admin_messaging') }}" id="messaging-form">
+
+    <!-- ── Key-mismatch warning ──────────────────────────────────── -->
+    {% if cred_status.key_mismatch %}
+    <div class="rounded-2xl px-4 py-4 flex items-start gap-3"
+         style="background:#1f0808;border:1px solid #dc2626;">
+      <i class="fa-solid fa-shield-exclamation text-base flex-shrink-0 mt-0.5" style="color:#f87171;"></i>
+      <div class="space-y-1.5">
+        <p class="text-sm font-bold" style="color:#fca5a5;">Credential Decryption Failed — App Secret Changed?</p>
+        <p class="text-xs" style="color:#fca5a5;">
+          One or more saved credentials cannot be decrypted with the current
+          <code style="color:#fbbf24;">SESSION_SECRET</code>. This happens when the secret is rotated
+          or when the app is moved to a new environment. Notifications are currently broken.
+        </p>
+        <p class="text-xs" style="color:#ef4444;">
+          Affected: <strong style="color:#fbbf24;">{{ cred_status.key_mismatch_fields | join(', ') }}</strong>
+        </p>
+        <p class="text-xs" style="color:#fca5a5;">
+          <strong style="color:#fbbf24;">What to do:</strong>
+          Re-enter the affected credentials below and click <em>Save All Credentials</em>.
+          The new values will be re-encrypted with the current secret.
+        </p>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ── Channel health summary ────────────────────────────────── -->
+    <div class="stat-card space-y-2">
+      <div class="ornament-line mb-2">
+        <i class="fa-solid fa-heart-pulse mr-1"></i> Channel Health
+      </div>
+      <p class="text-xs mb-3" style="color:#6e6058;">Quick status of each messaging channel based on saved credentials.</p>
+      <div class="grid grid-cols-2 gap-2">
+        {% set gp_ok = cred_status.gmail_password %}
+        {% set gp_mm = cred_status.gmail_password_mismatch %}
+        <div class="flex items-center gap-2 rounded-xl px-3 py-2"
+             style="background:{{ '#0d1f14' if gp_ok else ('#1f0808' if gp_mm else '#1f0d0d') }};border:1px solid {{ '#6ee7b7' if gp_ok else ('#dc2626' if gp_mm else '#f87171') }};">
+          <span class="text-sm">{{ '✅' if gp_ok else ('🔑' if gp_mm else '❌') }}</span>
+          <div>
+            <div class="text-xs font-semibold" style="color:{{ '#6ee7b7' if gp_ok else ('#f87171' if gp_mm else '#f87171') }};">Gmail / OTP Email</div>
+            <div class="text-xs" style="color:#6e6058;">{{ 'Configured' if gp_ok else ('Re-enter required' if gp_mm else 'Not configured') }}</div>
+          </div>
+        </div>
+        {% set f2s_ok = cred_status.fast2sms_key %}
+        {% set f2s_mm = cred_status.fast2sms_key_mismatch %}
+        <div class="flex items-center gap-2 rounded-xl px-3 py-2"
+             style="background:{{ '#0d1f14' if f2s_ok else ('#1f0808' if f2s_mm else '#1f0d0d') }};border:1px solid {{ '#6ee7b7' if f2s_ok else ('#dc2626' if f2s_mm else '#f87171') }};">
+          <span class="text-sm">{{ '✅' if f2s_ok else ('🔑' if f2s_mm else '❌') }}</span>
+          <div>
+            <div class="text-xs font-semibold" style="color:{{ '#6ee7b7' if f2s_ok else '#f87171' }};">Customer OTP SMS</div>
+            <div class="text-xs" style="color:#6e6058;">{{ 'Configured' if f2s_ok else ('Re-enter required' if f2s_mm else 'Not configured') }}</div>
+          </div>
+        </div>
+        {% set tw_ok = cred_status.twilio_sid and cred_status.twilio_token %}
+        {% set tw_mm = cred_status.twilio_sid_mismatch or cred_status.twilio_token_mismatch %}
+        <div class="flex items-center gap-2 rounded-xl px-3 py-2"
+             style="background:{{ '#0d1f14' if tw_ok else ('#1f0808' if tw_mm else '#1a1a0d') }};border:1px solid {{ '#6ee7b7' if tw_ok else ('#dc2626' if tw_mm else '#a3a300') }};">
+          <span class="text-sm">{{ '✅' if tw_ok else ('🔑' if tw_mm else '⚠️') }}</span>
+          <div>
+            <div class="text-xs font-semibold" style="color:{{ '#6ee7b7' if tw_ok else ('#f87171' if tw_mm else '#facc15') }};">Owner SMS (Twilio)</div>
+            <div class="text-xs" style="color:#6e6058;">{{ 'Configured' if tw_ok else ('Re-enter required' if tw_mm else 'Optional') }}</div>
+          </div>
+        </div>
+        {% set wa_ok = cred_status.whatsapp_token and cred_status.whatsapp_phone_id %}
+        {% set wa_mm = cred_status.whatsapp_token_mismatch %}
+        <div class="flex items-center gap-2 rounded-xl px-3 py-2"
+             style="background:{{ '#0d1f14' if wa_ok else ('#1f0808' if wa_mm else '#1a1a0d') }};border:1px solid {{ '#6ee7b7' if wa_ok else ('#dc2626' if wa_mm else '#a3a300') }};">
+          <span class="text-sm">{{ '✅' if wa_ok else ('🔑' if wa_mm else '⚠️') }}</span>
+          <div>
+            <div class="text-xs font-semibold" style="color:{{ '#6ee7b7' if wa_ok else ('#f87171' if wa_mm else '#facc15') }};">WhatsApp</div>
+            <div class="text-xs" style="color:#6e6058;">{{ 'Configured' if wa_ok else ('Re-enter required' if wa_mm else 'Optional') }}</div>
+          </div>
+        </div>
+      </div>
+      {% if cred_status.key_mismatch %}
+      {# key-mismatch already handled by the top-level banner above #}
+      {% elif not cred_status.gmail_password or not cred_status.fast2sms_key %}
+      <div class="rounded-xl px-3 py-2 mt-1 flex items-start gap-2"
+           style="background:#2a1a00;border:1px solid #b45309;">
+        <i class="fa-solid fa-triangle-exclamation text-xs mt-0.5 flex-shrink-0" style="color:#f59e0b;"></i>
+        <p class="text-xs" style="color:#d97706;">
+          <strong style="color:#fbbf24;">Action required:</strong>
+          {% if not cred_status.gmail_password and not cred_status.fast2sms_key %}
+            Gmail and Fast2SMS are both missing — customers cannot complete online bookings.
+          {% elif not cred_status.gmail_password %}
+            Gmail password is missing — OTP emails will not be sent.
+          {% else %}
+            Fast2SMS API key is missing — OTP SMS delivery will not work.
+          {% endif %}
+        </p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ── Gmail ─────────────────────────────────────────────────── -->
+    <div class="stat-card space-y-4">
+      <div class="ornament-line mb-1">
+        <i class="fa-solid fa-envelope mr-1"></i> Email via Gmail
+      </div>
+      <p class="text-xs" style="color:#6e6058;">Used for booking confirmations, OTP emails, and owner alerts.</p>
+
+      <div>
+        <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">Gmail Address</label>
+        <input type="email" name="gmail_user"
+               value="{{ cred_status.gmail_user }}"
+               placeholder="yourname@gmail.com"
+               class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+               style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">
+          Gmail App Password
+          {% if cred_status.gmail_password_mismatch %}
+          <span class="ml-2 text-xs font-semibold" style="color:#f87171;">⚠ Re-enter required</span>
+          {% elif cred_status.gmail_password %}
+          <span class="ml-2 badge badge-green text-xs">● Saved</span>
+          {% endif %}
+        </label>
+        <input type="password" name="gmail_password"
+               placeholder="{{ '⚠ Decryption failed — please re-enter' if cred_status.gmail_password_mismatch else ('●●●●●●●●●●●● (leave blank to keep current)' if cred_status.gmail_password else 'Google Account → Security → App Passwords') }}"
+               autocomplete="new-password"
+               class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+               style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+        <p class="text-xs mt-1" style="color:#5e5248;">
+          Generate at <span style="color:#c9a96e;">myaccount.google.com → Security → 2-Step Verification → App Passwords</span>
+        </p>
+      </div>
+
+      <button type="button"
+              onclick="testChannel('email', this)"
+              class="btn-gold rounded-xl px-5 py-2 text-sm flex items-center gap-2">
+        <i class="fa-solid fa-paper-plane"></i> Send Test Email to Owner
+      </button>
+    </div>
+
+    <!-- ── Twilio SMS ─────────────────────────────────────────────── -->
+    <div class="stat-card space-y-4">
+      <div class="ornament-line mb-1">
+        <i class="fa-solid fa-comment-sms mr-1"></i> SMS via Twilio
+      </div>
+      <p class="text-xs" style="color:#6e6058;">Sends a booking alert SMS to the salon owner.</p>
+
+      <div class="grid grid-cols-1 gap-3">
+        <div>
+          <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">
+            Account SID
+            {% if cred_status.twilio_sid_mismatch %}
+            <span class="ml-2 text-xs font-semibold" style="color:#f87171;">⚠ Re-enter required</span>
+            {% elif cred_status.twilio_sid %}
+            <span class="ml-2 badge badge-green text-xs">● Saved</span>
+            {% endif %}
+          </label>
+          <input type="password" name="twilio_sid"
+                 placeholder="{{ '⚠ Decryption failed — please re-enter' if cred_status.twilio_sid_mismatch else ('●●●●●●●●●●●● (leave blank to keep current)' if cred_status.twilio_sid else 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx') }}"
+                 autocomplete="new-password"
+                 class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+                 style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">
+            Auth Token
+            {% if cred_status.twilio_token_mismatch %}
+            <span class="ml-2 text-xs font-semibold" style="color:#f87171;">⚠ Re-enter required</span>
+            {% elif cred_status.twilio_token %}
+            <span class="ml-2 badge badge-green text-xs">● Saved</span>
+            {% endif %}
+          </label>
+          <input type="password" name="twilio_token"
+                 placeholder="{{ '⚠ Decryption failed — please re-enter' if cred_status.twilio_token_mismatch else ('●●●●●●●●●●●● (leave blank to keep current)' if cred_status.twilio_token else 'Your Twilio Auth Token') }}"
+                 autocomplete="new-password"
+                 class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+                 style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">Twilio From Number</label>
+          <input type="text" name="twilio_number"
+                 value="{{ cred_status.twilio_number }}"
+                 placeholder="+14155551234"
+                 class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+                 style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+        </div>
+      </div>
+
+      <button type="button"
+              onclick="testChannel('sms', this)"
+              class="btn-gold rounded-xl px-5 py-2 text-sm flex items-center gap-2">
+        <i class="fa-solid fa-comment-sms"></i> Send Test SMS to Owner
+      </button>
+    </div>
+
+    <!-- ── WhatsApp ───────────────────────────────────────────────── -->
+    <div class="stat-card space-y-4">
+      <div class="ornament-line mb-1">
+        <i class="fa-brands fa-whatsapp mr-1"></i> WhatsApp via Meta Cloud API
+      </div>
+      <p class="text-xs" style="color:#6e6058;">Used for OTP delivery, booking confirmations, invoice receipts, and campaigns.</p>
+
+      <div class="grid grid-cols-1 gap-3">
+        <div>
+          <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">
+            Access Token
+            {% if cred_status.whatsapp_token_mismatch %}
+            <span class="ml-2 text-xs font-semibold" style="color:#f87171;">⚠ Re-enter required</span>
+            {% elif cred_status.whatsapp_token %}
+            <span class="ml-2 badge badge-green text-xs">● Saved</span>
+            {% endif %}
+          </label>
+          <input type="password" name="whatsapp_token"
+                 placeholder="{{ '⚠ Decryption failed — please re-enter' if cred_status.whatsapp_token_mismatch else ('●●●●●●●●●●●● (leave blank to keep current)' if cred_status.whatsapp_token else 'EAAxxxxxxxx… (Meta developer token)') }}"
+                 autocomplete="new-password"
+                 class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+                 style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">Phone Number ID</label>
+          <input type="text" name="whatsapp_phone_id"
+                 value="{{ cred_status.whatsapp_phone_id }}"
+                 placeholder="123456789012345"
+                 class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+                 style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">OTP Template Name</label>
+          <input type="text" name="whatsapp_otp_template"
+                 value="{{ cred_status.whatsapp_otp_template or 'vanshika_otp' }}"
+                 placeholder="vanshika_otp"
+                 class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+                 style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+          <p class="text-xs mt-1" style="color:#5e5248;">The approved Meta template name for OTP messages. Default: <code style="color:#c9a96e;">vanshika_otp</code></p>
+        </div>
+      </div>
+
+      <div class="flex items-end gap-3">
+        <div class="flex-1">
+          <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">Test Phone Number (with country code)</label>
+          <input type="text" id="wa-test-phone"
+                 placeholder="919582206858"
+                 class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+                 style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+        </div>
+        <button type="button"
+                onclick="testChannel('whatsapp', this)"
+                class="btn-gold rounded-xl px-5 py-2 text-sm flex items-center gap-2 flex-shrink-0">
+          <i class="fa-brands fa-whatsapp"></i> Test
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Fast2SMS ───────────────────────────────────────────────── -->
+    <div class="stat-card space-y-4">
+      <div class="ornament-line mb-1">
+        <i class="fa-solid fa-mobile-screen-button mr-1"></i> Customer OTP via Fast2SMS
+      </div>
+      <p class="text-xs" style="color:#6e6058;">Sends booking verification OTPs to Indian customer mobiles.</p>
+
+      <div>
+        <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">
+          Fast2SMS API Key
+          {% if cred_status.fast2sms_key_mismatch %}
+          <span class="ml-2 text-xs font-semibold" style="color:#f87171;">⚠ Re-enter required</span>
+          {% elif cred_status.fast2sms_key %}
+          <span class="ml-2 badge badge-green text-xs">● Saved</span>
+          {% endif %}
+        </label>
+        <input type="password" name="fast2sms_key"
+               placeholder="{{ '⚠ Decryption failed — please re-enter' if cred_status.fast2sms_key_mismatch else ('●●●●●●●●●●●● (leave blank to keep current)' if cred_status.fast2sms_key else 'Your Fast2SMS API key from fast2sms.com') }}"
+               autocomplete="new-password"
+               class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+               style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+      </div>
+
+      <div class="flex items-end gap-3">
+        <div class="flex-1">
+          <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">Test Mobile (10 digits, no country code)</label>
+          <input type="text" id="f2s-test-phone"
+                 placeholder="9876543210"
+                 maxlength="10"
+                 class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+                 style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
+        </div>
+        <button type="button"
+                onclick="testChannel('fast2sms', this)"
+                class="btn-gold rounded-xl px-5 py-2 text-sm flex items-center gap-2 flex-shrink-0">
+          <i class="fa-solid fa-paper-plane"></i> Test OTP
+        </button>
+      </div>
+    </div>
+
+    <!-- Save button -->
+    <div class="flex justify-end gap-3 pt-2">
+      <button type="submit"
+              class="btn-gold rounded-xl px-8 py-3 text-sm font-bold flex items-center gap-2">
+        <i class="fa-solid fa-floppy-disk"></i> Save All Credentials
+      </button>
+    </div>
+
+  </form>
+
+  <!-- Test result toast -->
+  <div id="test-toast" class="hidden fixed bottom-6 right-6 z-50 rounded-2xl px-5 py-4 text-sm font-medium shadow-2xl max-w-sm"
+       style="border:1px solid rgba(201,169,110,.3);">
+    <div class="flex items-start gap-3">
+      <i id="toast-icon" class="fa-solid fa-circle-check mt-0.5 flex-shrink-0"></i>
+      <span id="toast-msg"></span>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Collect live credential values from the current form so the test endpoint
+// can use them directly — no prior save required.
+function buildTestBody(channel) {
+  const fd = new FormData();
+
+  function addField(name) {
+    const el = document.querySelector(`[name="${name}"]`);
+    if (el && el.value.trim()) fd.append(name, el.value.trim());
+  }
+
+  if (channel === 'email') {
+    addField('gmail_user');
+    addField('gmail_password');
+  } else if (channel === 'sms') {
+    addField('twilio_sid');
+    addField('twilio_token');
+    addField('twilio_number');
+  } else if (channel === 'whatsapp') {
+    addField('whatsapp_token');
+    addField('whatsapp_phone_id');
+    const phone = document.getElementById('wa-test-phone').value.trim();
+    if (phone) fd.append('test_phone', phone);
+  } else if (channel === 'fast2sms') {
+    addField('fast2sms_key');
+    const phone = document.getElementById('f2s-test-phone').value.trim();
+    if (phone) fd.append('test_phone', phone);
+  }
+  return fd;
+}
+
+async function testChannel(channel, btn) {
+  const origHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending…';
+
+  try {
+    const resp = await fetch(`/admin/messaging/test/${channel}`, {
+      method: 'POST',
+      body: buildTestBody(channel),
+    });
+    const data = await resp.json();
+    showToast(data.ok, data.message);
+  } catch (e) {
+    showToast(false, 'Network error — please try again.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origHtml;
+  }
+}
+
+function showToast(ok, message) {
+  const toast = document.getElementById('test-toast');
+  const icon  = document.getElementById('toast-icon');
+  const msg   = document.getElementById('toast-msg');
+  msg.textContent = message;
+  if (ok) {
+    toast.style.background = '#0d1f14';
+    toast.style.color = '#6ee7b7';
+    icon.className = 'fa-solid fa-circle-check mt-0.5 flex-shrink-0';
+  } else {
+    toast.style.background = '#1f0d0d';
+    toast.style.color = '#fca5a5';
+    icon.className = 'fa-solid fa-circle-exclamation mt-0.5 flex-shrink-0';
+  }
+  toast.classList.remove('hidden');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => toast.classList.add('hidden'), 5000);
+}
+</script>
+{% endblock %}

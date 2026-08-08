@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Booking Confirmed — {{ tenant.name if tenant else 'Salon' }}{% endblock %}
+
+{% block content %}
+<div class="pt-8 pb-8 text-center">
+
+  <!-- Confetti dots -->
+  <div class="relative mb-1 overflow-hidden" style="height:32px;">
+    {% for i in range(12) %}
+    <div class="absolute w-2 h-2 rounded-full"
+         style="background:{{ ['#fbbf24','#be185d','#d97706','#f9a8d4','#9d174d','#fde68a'][ loop.index0 % 6 ] }};
+                left:{{ (loop.index0 * 8 + 4) }}%;
+                top:{{ (loop.index0 % 3) * 8 }}px;
+                opacity:0.7;"></div>
+    {% endfor %}
+  </div>
+
+  <!-- Success animation ring -->
+  <div class="relative inline-flex items-center justify-center mb-4">
+    <div class="w-28 h-28 rounded-full absolute"
+         style="background:linear-gradient(135deg,#fce7f3,#fef3c7); opacity:0.6;"></div>
+    <div class="w-24 h-24 rounded-full flex items-center justify-center relative z-10"
+         style="background:linear-gradient(135deg,#d97706,#fbbf24); box-shadow:0 0 0 6px rgba(217,119,6,0.15), 0 8px 24px rgba(180,83,9,0.3);">
+      <i class="fa-solid fa-check text-white text-4xl"></i>
+    </div>
+  </div>
+
+  <h1 class="font-display text-2xl font-bold mb-1" style="color:#831843;">Appointment Booked!</h1>
+  <p class="text-sm mb-2" style="color:#be185d;">Your beauty session is confirmed ✨</p>
+
+  <!-- Booking ID Badge -->
+  <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-4"
+       style="background:linear-gradient(135deg,#92400e,#d97706); box-shadow:0 4px 16px rgba(180,83,9,0.35);">
+    <i class="fa-solid fa-hashtag text-yellow-200 text-xs"></i>
+    <span class="text-white font-bold text-sm tracking-wider">Booking ID: #{{ booking_id }}</span>
+  </div>
+
+  <!-- SMS sent notice -->
+  <div class="flex items-center justify-center gap-2 mb-5">
+    <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
+         style="background:#f0fdf4; border:1px solid #86efac; color:#166534;">
+      <i class="fa-solid fa-envelope-circle-check text-green-500"></i>
+      Confirmation email sent to your inbox
+    </div>
+  </div>
+
+  <!-- Gold ornament divider -->
+  <div class="ornament-line mb-5 px-4" style="color:#b45309; font-size:10px;">
+    <i class="fa-solid fa-gem text-xs" style="color:#d97706;"></i>
+    Booking Summary
+    <i class="fa-solid fa-gem text-xs" style="color:#d97706;"></i>
+  </div>
+
+  <!-- Booking Details Card -->
+  <div class="bg-white rounded-2xl p-5 card-shadow text-left mb-4" style="border:1.5px solid #fde68a;">
+    <div class="space-y-4">
+
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+             style="background:linear-gradient(135deg,#fce7f3,#fde68a);">
+          <i class="fa-solid fa-hashtag text-sm" style="color:#b45309;"></i>
+        </div>
+        <div>
+          <div class="text-xs text-gray-400 font-medium">Booking ID</div>
+          <div class="text-gray-800 font-bold" style="color:#92400e;">{{ booking_id }}</div>
+        </div>
+      </div>
+
+      <div class="h-px" style="background:linear-gradient(90deg,transparent,#fde68a,transparent);"></div>
+
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+             style="background:linear-gradient(135deg,#fce7f3,#fde68a);">
+          <i class="fa-solid fa-user text-sm" style="color:#b45309;"></i>
+        </div>
+        <div>
+          <div class="text-xs text-gray-400 font-medium">Name</div>
+          <div class="text-gray-800 font-semibold">{{ name }}</div>
+        </div>
+      </div>
+
+      <div class="h-px" style="background:linear-gradient(90deg,transparent,#fde68a,transparent);"></div>
+
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+             style="background:linear-gradient(135deg,#fce7f3,#fde68a);">
+          <i class="fa-solid fa-phone text-sm" style="color:#b45309;"></i>
+        </div>
+        <div>
+          <div class="text-xs text-gray-400 font-medium">Phone</div>
+          <div class="text-gray-800 font-semibold">{{ phone }}</div>
+        </div>
+      </div>
+
+      <div class="h-px" style="background:linear-gradient(90deg,transparent,#fde68a,transparent);"></div>
+
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+             style="background:linear-gradient(135deg,#fce7f3,#fde68a);">
+          <i class="fa-solid fa-spa text-sm" style="color:#b45309;"></i>
+        </div>
+        <div>
+          <div class="text-xs text-gray-400 font-medium">Service</div>
+          <div class="text-gray-800 font-semibold">{{ service }}</div>
+        </div>
+      </div>
+
+      <div class="h-px" style="background:linear-gradient(90deg,transparent,#fde68a,transparent);"></div>
+
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+             style="background:linear-gradient(135deg,#fce7f3,#fde68a);">
+          <i class="fa-solid fa-calendar-days text-sm" style="color:#b45309;"></i>
+        </div>
+        <div>
+          <div class="text-xs text-gray-400 font-medium">Date</div>
+          <div class="text-gray-800 font-semibold">{{ date }}</div>
+        </div>
+      </div>
+
+      <div class="h-px" style="background:linear-gradient(90deg,transparent,#fde68a,transparent);"></div>
+
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+             style="background:linear-gradient(135deg,#fce7f3,#fde68a);">
+          <i class="fa-solid fa-clock text-sm" style="color:#b45309;"></i>
+        </div>
+        <div>
+          <div class="text-xs text-gray-400 font-medium">Time</div>
+          <div class="text-gray-800 font-semibold">{{ time }}</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Info Note -->
+  <div class="rounded-2xl p-4 mb-6 text-left flex gap-3"
+       style="background:linear-gradient(135deg,#fffbf0,#fef3c7); border:1px solid #d97706;">
+    <i class="fa-solid fa-crown text-yellow-500 text-xl flex-shrink-0 mt-0.5"></i>
+    <div>
+      <div class="font-semibold text-sm mb-1" style="color:#92400e;">What's Next?</div>
+      <div class="text-xs" style="color:#b45309;">
+        Please arrive 10 minutes early. Bring any reference looks you love! Quote your Booking ID at the salon.
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="flex flex-col gap-3">
+    <a href="/book" class="btn-gold py-4 rounded-2xl text-base font-bold shadow-lg flex items-center justify-center gap-2">
+      <i class="fa-solid fa-calendar-plus"></i> Book Another Appointment
+    </a>
+    <a href="/" class="py-4 rounded-2xl text-base font-semibold flex items-center justify-center gap-2"
+       style="background:#fff; border:1.5px solid #fde68a; color:#b45309;">
+      <i class="fa-solid fa-house"></i> Back to Home
+    </a>
+  </div>
+</div>
+{% endblock %}

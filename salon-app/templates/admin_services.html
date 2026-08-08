@@ -1,0 +1,184 @@
+{% extends "admin_base.html" %}
+{% block title %}Services — {{ tenant.name if tenant else "Salon" }}{% endblock %}
+{% block page_title %}Services{% endblock %}
+
+{% block content %}
+<!-- Add Category -->
+<div class="bg-white rounded-2xl p-4 card-shadow mb-4" style="border:1px solid #fde68a;">
+  <h3 class="font-semibold text-sm text-gray-700 mb-3 flex items-center gap-2">
+    <i class="fa-solid fa-folder-plus" style="color:#d97706;"></i> Add Category
+  </h3>
+  <form method="POST" action="{{ url_for('admin_add_category') }}" class="flex gap-2">
+    <input type="text" name="name" required placeholder="Category name (e.g. Nail Studio)"
+           class="flex-1 rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+           style="border:1.5px solid #fde68a; background:#fffbf0;">
+    <button type="submit" class="btn-gold px-4 rounded-xl text-sm font-semibold flex-shrink-0">
+      <i class="fa-solid fa-plus"></i> Add
+    </button>
+  </form>
+</div>
+
+<!-- Add Service -->
+<div class="bg-white rounded-2xl p-4 card-shadow mb-5" style="border:1px solid #fde68a;">
+  <h3 class="font-semibold text-sm text-gray-700 mb-3 flex items-center gap-2">
+    <i class="fa-solid fa-wand-magic-sparkles" style="color:#d97706;"></i> Add Service
+  </h3>
+  <form method="POST" action="{{ url_for('admin_add_service') }}" class="space-y-3">
+    <div class="relative">
+      <select name="category_id" required
+              class="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none appearance-none pr-8"
+              style="border:1.5px solid #fde68a; background:#fffbf0;">
+        <option value="">— Select Category —</option>
+        {% for cat in cats %}
+        <option value="{{ cat['id'] }}">{{ cat['name'] }}</option>
+        {% endfor %}
+      </select>
+      <i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-xs pointer-events-none" style="color:#d97706;"></i>
+    </div>
+    <input type="text" name="name" required placeholder="Service name (e.g. Gold Facial)"
+           class="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+           style="border:1.5px solid #fde68a; background:#fffbf0;">
+    <div class="flex gap-2">
+      <div class="flex-1 relative">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">₹</span>
+        <input type="number" name="price" placeholder="Price" min="0" step="0.01"
+               class="w-full rounded-xl pl-7 pr-3 py-2.5 text-sm focus:outline-none"
+               style="border:1.5px solid #fde68a; background:#fffbf0;">
+      </div>
+      <div class="flex-1 relative">
+        <input type="number" name="duration_minutes" placeholder="Duration (min)" min="5" step="5" value="60"
+               class="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+               style="border:1.5px solid #fde68a; background:#fffbf0;">
+      </div>
+    </div>
+    <button type="submit" class="btn-rose w-full py-3 rounded-xl text-sm font-semibold">
+      <i class="fa-solid fa-plus mr-1"></i> Add Service
+    </button>
+  </form>
+</div>
+
+<!-- Categories + Services -->
+{% if cats %}
+  {% for cat in cats %}
+  <div class="bg-white rounded-2xl card-shadow mb-4 overflow-hidden" style="border:1px solid #fde68a;">
+    <!-- Category header -->
+    <div class="flex items-center justify-between px-4 py-3"
+         style="background:linear-gradient(135deg,#fef3c7,#fce7f3);">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid {{ cat['icon'] }} text-sm" style="color:#b45309;"></i>
+        <span class="font-semibold text-sm" style="color:#92400e;">{{ cat['name'] }}</span>
+        <span class="badge badge-gold" style="font-size:10px;">{{ svcs_by_cat[cat['id']]|length }} services</span>
+      </div>
+      <form method="POST" action="{{ url_for('admin_delete_category', cat_id=cat['id']) }}"
+            onsubmit="return confirm('Delete this category and ALL its services?')">
+        <button type="submit" class="text-xs text-red-400 hover:text-red-600 px-2 py-1">
+          <i class="fa-solid fa-trash-can"></i>
+        </button>
+      </form>
+    </div>
+
+    <!-- Services in category -->
+    {% set svcs = svcs_by_cat[cat['id']] %}
+    {% if svcs %}
+      {% for svc in svcs %}
+      <div class="border-t flex items-start gap-3 px-4 py-3" style="border-color:#fde68a;">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-medium text-sm text-gray-800">{{ svc['name'] }}</span>
+            {% if not svc['is_active'] %}
+            <span class="badge badge-gray" style="font-size:9px;">Hidden</span>
+            {% endif %}
+          </div>
+          <div class="flex gap-3 mt-1">
+            {% if svc['price'] %}
+            <span class="text-xs text-amber-700 font-semibold">₹{{ '%.0f' | format(svc['price']) }}</span>
+            {% endif %}
+            {% if svc['duration_minutes'] %}
+            <span class="text-xs text-gray-400">{{ svc['duration_minutes'] }} min</span>
+            {% endif %}
+          </div>
+        </div>
+        <!-- Edit & Delete -->
+        <div class="flex gap-2 flex-shrink-0">
+          <button onclick="openEdit({{ svc['id'] }}, '{{ svc['name']|replace("'","\\'")|e }}', {{ svc['price'] or 0 }}, {{ svc['duration_minutes'] or 60 }}, {{ svc['is_active'] }})"
+                  class="badge badge-gold text-xs cursor-pointer">Edit</button>
+          <form method="POST" action="{{ url_for('admin_delete_service', svc_id=svc['id']) }}"
+                onsubmit="return confirm('Delete service?')">
+            <button type="submit" class="badge badge-red text-xs cursor-pointer">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="px-4 py-3 text-xs text-gray-400 text-center border-t" style="border-color:#fde68a;">
+        No services — add one above
+      </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+{% else %}
+<div class="bg-white rounded-2xl p-10 text-center card-shadow" style="border:1px solid #fde68a;">
+  <div class="text-4xl mb-3">✨</div>
+  <div class="text-gray-400 text-sm">No categories yet — add one above</div>
+</div>
+{% endif %}
+
+<!-- Edit modal -->
+<div id="edit-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4"
+     style="background:rgba(0,0,0,.5);">
+  <div class="bg-white rounded-2xl p-5 w-full max-w-sm card-shadow">
+    <h3 class="font-display font-bold text-gray-800 mb-4">Edit Service</h3>
+    <form method="POST" id="edit-form" class="space-y-3">
+      <input type="text" name="name" id="edit-name" required placeholder="Service name"
+             class="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+             style="border:1.5px solid #fde68a; background:#fffbf0;">
+      <div class="flex gap-2">
+        <div class="flex-1 relative">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">₹</span>
+          <input type="number" name="price" id="edit-price" min="0" step="0.01"
+                 class="w-full rounded-xl pl-7 pr-3 py-2.5 text-sm focus:outline-none"
+                 style="border:1.5px solid #fde68a; background:#fffbf0;" placeholder="Price">
+        </div>
+        <div class="flex-1">
+          <input type="number" name="duration_minutes" id="edit-duration" min="5" step="5"
+                 class="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                 style="border:1.5px solid #fde68a; background:#fffbf0;" placeholder="Min">
+        </div>
+      </div>
+      <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+        <input type="checkbox" name="is_active" id="edit-active" value="1" class="rounded">
+        Show on booking form
+      </label>
+      <div class="flex gap-3 pt-1">
+        <button type="button" onclick="closeEdit()"
+                class="flex-1 py-3 rounded-xl text-sm font-semibold text-gray-600"
+                style="background:#f3f4f6; border:1px solid #e5e7eb;">Cancel</button>
+        <button type="submit" class="btn-gold flex-1 py-3 rounded-xl text-sm font-semibold">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openEdit(id, name, price, duration, isActive) {
+  document.getElementById('edit-form').action = '/admin/services/' + id + '/edit';
+  document.getElementById('edit-name').value = name;
+  document.getElementById('edit-price').value = price;
+  document.getElementById('edit-duration').value = duration;
+  document.getElementById('edit-active').checked = isActive === 1;
+  document.getElementById('edit-modal').classList.remove('hidden');
+  document.getElementById('edit-modal').classList.add('flex');
+}
+function closeEdit() {
+  document.getElementById('edit-modal').classList.add('hidden');
+  document.getElementById('edit-modal').classList.remove('flex');
+}
+document.getElementById('edit-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeEdit();
+});
+</script>
+{% endblock %}
