@@ -45,6 +45,10 @@ outputType = "vnc"
 localPort = 5000
 externalPort = 80
 
+[[ports]]
+localPort = 5050
+externalPort = 3000
+
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 120000
