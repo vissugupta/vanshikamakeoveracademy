@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vanshika Makeover Academy</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0a;
+      color: #e8dcc8;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      -webkit-app-region: drag;
+    }
+
+    .logo-ring {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #c9a96e 0%, #d4af37 50%, #c9a96e 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 28px;
+      box-shadow: 0 0 40px rgba(201, 169, 110, 0.35);
+      animation: pulse 2.5s ease-in-out infinite;
+    }
+
+    .logo-ring svg {
+      width: 52px;
+      height: 52px;
+      fill: #0a0a0a;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 40px rgba(201, 169, 110, 0.35); }
+      50%       { box-shadow: 0 0 70px rgba(201, 169, 110, 0.65); }
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 300;
+      letter-spacing: 2px;
+      color: #c9a96e;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .tagline {
+      font-size: 13px;
+      letter-spacing: 1px;
+      color: #7a6a55;
+      margin-bottom: 48px;
+    }
+
+    .spinner-track {
+      width: 260px;
+      height: 3px;
+      background: #1e1e1e;
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .spinner-bar {
+      height: 100%;
+      width: 40%;
+      background: linear-gradient(90deg, transparent, #c9a96e, #d4af37, transparent);
+      border-radius: 99px;
+      animation: slide 1.6s ease-in-out infinite;
+    }
+
+    @keyframes slide {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(350%); }
+    }
+
+    .status {
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      color: #5a4f3e;
+    }
+
+    #status-text {
+      transition: opacity 0.3s;
+    }
+  </style>
+</head>
+<body>
+  <div class="logo-ring">
+    <!-- Scissors / scissors icon -->
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M9.64 7.64A3.5 3.5 0 1 0 5.5 11a3.48 3.48 0 0 0 2.14-.74l6.95 6.96a3.5 3.5 0 1 0 .71-.71l-6.96-6.95A3.48 3.48 0 0 0 9.64 7.64zM5.5 10a1.5 1.5 0 1 1 1.5-1.5A1.5 1.5 0 0 1 5.5 10zm13 8a1.5 1.5 0 1 1-1.5-1.5A1.5 1.5 0 0 1 18.5 18zm-7-7.5 5.57-5.57a3.5 3.5 0 1 0-.71-.71L10.79 9.79z"/>
+    </svg>
+  </div>
+
+  <h1>Vanshika Makeover Academy</h1>
+  <p class="tagline">Salon Management Suite</p>
+
+  <div class="spinner-track">
+    <div class="spinner-bar"></div>
+  </div>
+
+  <p class="status"><span id="status-text">Starting application…</span></p>
+
+  <script>
+    const messages = [
+      'Starting application…',
+      'Initialising database…',
+      'Loading services…',
+      'Almost ready…',
+    ];
+    let idx = 0;
+    const el = document.getElementById('status-text');
+    setInterval(() => {
+      idx = (idx + 1) % messages.length;
+      el.style.opacity = '0';
+      setTimeout(() => {
+        el.textContent = messages[idx];
+        el.style.opacity = '1';
+      }, 200);
+    }, 2500);
+  </script>
+</body>
+</html>

@@ -20,19 +20,30 @@ cd salon-app && python app.py
 On first start the app creates a fresh SQLite database (`salon-app/salon.db`) and prints a one-time bootstrap admin password to the logs.
 
 ### Desktop app (Electron)
-The **Desktop App** workflow launches an Electron window that spawns Flask internally on port 5050 and opens it as a native desktop window.
+The **Desktop App** workflow launches an Electron window that spawns Flask internally on port 5001 and opens it as a native desktop window.
 
 ```bash
-cd artifacts/desktop && pnpm exec electron .
+cd desktop && node_modules/.bin/electron . --no-sandbox
 ```
 
-Set `FLASK_DESKTOP_MODE=1` (done automatically by the Electron main process) to disable Secure-cookie requirements when running without an HTTPS proxy.
+`FLASK_DESKTOP_MODE=1` is set automatically by the Electron main process so Flask uses plain HTTP session cookies (no `Secure`/`SameSite=None`) over the local loopback interface.
+
+Build distributable installers from the `desktop/` directory:
+
+```bash
+npm run dist:linux   # → dist/*.AppImage + *.deb  (run on Linux)
+npm run dist:win     # → dist/*.exe NSIS installer (requires Wine on Linux)
+npm run dist:mac     # → dist/*.dmg               (run on macOS)
+```
+
+> **Note:** Installers bundle the Python source files but require Python 3 and the Flask dependencies to be installed on the target machine. Fully self-contained installers (bundled Python runtime) are tracked in a follow-up task.
 
 ## Stack
 
 - **Backend:** Python / Flask, SQLite
 - **Templates:** Jinja2 HTML
 - **Mobile:** Expo (React Native WebView wrapper) — see `mobile/`
+- **Desktop:** Electron (wraps the Flask server) — see `desktop/`
 
 ## Secrets & credentials
 

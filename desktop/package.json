@@ -1,0 +1,66 @@
+{
+  "name": "vanshika-makeover-desktop",
+  "version": "1.0.0",
+  "description": "Vanshika Makeover Academy — Desktop App (Electron wrapper for the Flask salon ERP)",
+  "main": "main.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "electron . --no-sandbox",
+    "dist:linux": "electron-builder --linux",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.vanshika.makeover.academy",
+    "productName": "Vanshika Makeover Academy",
+    "copyright": "Copyright © 2024 Vanshika Makeover Academy",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "loading.html"
+    ],
+    "extraResources": [
+      {
+        "from": "../salon-app",
+        "to": "salon-app",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**",
+          "!**/*.pyc",
+          "!uploads/**"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ]
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] }
+      ],
+      "category": "public.app-category.business"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Office"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "overrides": {
+    "tar": "^7.4.3"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  }
+}

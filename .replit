@@ -34,12 +34,12 @@ outputType = "webview"
 name = "Desktop App"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd artifacts/desktop && pnpm exec electron ."
-
 [workflows.workflow.metadata]
 outputType = "vnc"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd desktop && ([ -d node_modules ] || npm install --silent) && node_modules/.bin/electron . --no-sandbox"
 
 [[ports]]
 localPort = 5000

@@ -104,14 +104,28 @@ def proxy_expo_domain_to_metro():
     except urllib.error.URLError:
         return Response('Expo bundler is unavailable', status=503)
 
-DATABASE = os.path.join(os.path.dirname(__file__), 'salon.db')
-FEEDBACK_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), 'uploads', 'feedback')
+# When running inside the packaged Electron desktop app, SALON_DATA_DIR is set
+# to the platform user-data directory (writable). In development / web it is
+# unset and everything defaults to the directory next to app.py as before.
+_DATA_DIR = os.environ.get('SALON_DATA_DIR', '')
+_APP_DIR  = os.path.dirname(__file__)
+
+DATABASE           = os.path.join(_DATA_DIR or _APP_DIR, 'salon.db')
+FEEDBACK_UPLOAD_DIR = os.path.join(_DATA_DIR or _APP_DIR, 'uploads', 'feedback')
 FEEDBACK_ALLOWED_EXTENSIONS = {
     'jpg': 'image', 'jpeg': 'image', 'png': 'image',
     'webp': 'image', 'gif': 'image',
     'mp4': 'video', 'mov': 'video', 'webm': 'video',
 }
-LOGO_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), 'static', 'logos')
+# In dev/web mode logos live in static/logos/ so Flask's built-in static handler
+# also works (backward compatible with any existing uploads).
+# In packaged Electron mode they move to the writable user-data directory so the
+# read-only resources bundle is never mutated.
+LOGO_UPLOAD_DIR = (
+    os.path.join(_DATA_DIR, 'logos')
+    if _DATA_DIR
+    else os.path.join(_APP_DIR, 'static', 'logos')
+)
 LOGO_ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
 os.makedirs(LOGO_UPLOAD_DIR, exist_ok=True)
 app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024
@@ -4163,3 +4177,4 @@ init_db()
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+

@@ -7,4 +7,7 @@ uv pip install --python .pythonlibs/bin/python3 -r salon-app/requirements.txt -q
 echo "==> Installing Node dependencies..."
 pnpm install --frozen-lockfile
 
+echo "==> Installing Electron desktop dependencies..."
+npm ci --prefix desktop --silent
+
 echo "==> Post-merge setup complete."
