@@ -7,3 +7,10 @@ uri = "file://desktop/dist/Vanshika%20Makeover%20Academy-1.0.0.AppImage"
 type = "unspecified"
 title = "Vanshika Makeover Academy Desktop — Linux AppImage"
 description = "Self-contained Linux desktop installer. Includes the bundled Flask server and does not require Python on the customer machine."
+
+[[outputs]]
+id = "cpH9LZEhWOJyIQsi_NjaT"
+uri = "file://vanshikamakeoveracademy-github-source.zip"
+type = "unspecified"
+title = "Vanshika Makeover Academy — GitHub Source ZIP"
+description = "Clean source archive ready to upload to a new GitHub repository. Excludes local databases, dependencies, build output, uploads, secrets, and Replit-only metadata."
