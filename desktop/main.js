@@ -30,9 +30,10 @@ function getSalonDataDir() {
 }
 
 /**
- * On first launch of the packaged app, copy the seed database from the
- * read-only resources into the writable data directory so Flask can open
- * and mutate it.  Subsequent launches skip the copy.
+ * On first launch of the packaged app, create the writable directories Flask
+ * expects. Flask creates salon.db itself on first start. We intentionally do
+ * not copy a database from the read-only installer: each sold installation
+ * must start with its own fresh local database.
  */
 function initUserDataDir(dataDir) {
   const fs = require('fs');
@@ -42,17 +43,7 @@ function initUserDataDir(dataDir) {
     fs.mkdirSync(path.join(dataDir, sub), { recursive: true });
   }
 
-  const destDb = path.join(dataDir, 'salon.db');
-  if (!fs.existsSync(destDb)) {
-    // Copy the bundled (seed) database so the user starts with a clean slate
-    const srcDb = path.join(getSalonAppDir(), 'salon.db');
-    if (fs.existsSync(srcDb)) {
-      fs.copyFileSync(srcDb, destDb);
-      console.log(`[desktop] Seeded salon.db into ${dataDir}`);
-    } else {
-      console.log(`[desktop] No seed database found; Flask will create a fresh one`);
-    }
-  }
+  console.log(`[desktop] Writable salon data directory ready: ${dataDir}`);
 }
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -65,46 +56,74 @@ let isQuitting   = false;
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
- * Resolve the path to the salon-app directory.
- * In development  → ../salon-app  (relative to desktop/)
- * In packaged app → <resourcesPath>/salon-app (extraResources copies it there)
+ * Resolve the path to the salon-app directory for development-only fallback.
  */
 function getSalonAppDir() {
-  if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'salon-app');
-  }
   return path.join(__dirname, '..', 'salon-app');
 }
 
 /**
- * Find the Python executable. Prefers python3, falls back to python.
- * In a packaged app you would bundle a Python runtime; for now we rely on the
- * system Python that the owner already has installed.
+ * Locate the PyInstaller server binary.
+ *
+ * Packaged installers always use this binary. In development, the same
+ * build-resources binary is preferred, but Python remains a convenient
+ * fallback so the Desktop App workflow works before the first server build.
  */
-function findPython() {
-  // On Windows the launcher is usually just "python"
-  if (process.platform === 'win32') return 'python';
-  return 'python3';
+function getBundledServerPath() {
+  const filename = process.platform === 'win32' ? 'salon-server.exe' : 'salon-server';
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'server', filename);
+  }
+  return path.join(__dirname, 'build-resources', filename);
+}
+
+function getServerCommand() {
+  const fs = require('fs');
+  const bundledServer = getBundledServerPath();
+  if (fs.existsSync(bundledServer)) {
+    return { command: bundledServer, args: [], cwd: path.dirname(bundledServer), bundled: true };
+  }
+
+  if (app.isPackaged) {
+    throw new Error(
+      `The bundled server executable is missing at ${bundledServer}. ` +
+      'Rebuild the installer after running "npm run build:server".',
+    );
+  }
+
+  // Development fallback only. This path is never used by an installer.
+  const python = process.platform === 'win32' ? 'python' : 'python3';
+  return { command: python, args: ['wsgi.py'], cwd: getSalonAppDir(), bundled: false };
 }
 
 // ─── Flask lifecycle ──────────────────────────────────────────────────────────
 
 function startFlask() {
-  const salonDir  = getSalonAppDir();
-  const python    = findPython();
   const dataDir   = getSalonDataDir();
+  let server;
 
   if (dataDir) {
     initUserDataDir(dataDir);
   }
 
-  console.log(`[desktop] Starting Flask from ${salonDir} using ${python}`);
+  try {
+    server = getServerCommand();
+  } catch (error) {
+    dialog.showErrorBox('Desktop server is missing', error.message);
+    app.quit();
+    return;
+  }
+
+  console.log(
+    `[desktop] Starting Flask ${server.bundled ? 'binary' : 'development fallback'} ` +
+    `from ${server.command}`,
+  );
   if (dataDir) {
     console.log(`[desktop] User data dir: ${dataDir}`);
   }
 
-  flaskProcess = spawn(python, ['wsgi.py'], {
-    cwd: salonDir,
+  flaskProcess = spawn(server.command, server.args, {
+    cwd: server.cwd,
     env: {
       ...process.env,
       FLASK_PORT:     String(FLASK_PORT),
@@ -136,8 +155,8 @@ function startFlask() {
       dialog.showErrorBox(
         'Server crashed',
         `The Flask server stopped unexpectedly (exit code ${code}).\n` +
-        'Please restart the application. If the problem persists, check that ' +
-        'Python and all dependencies are installed correctly.',
+      'Please restart the application. If the problem persists, reinstall the app ' +
+      'or contact support.',
       );
       app.quit();
     }
@@ -147,8 +166,8 @@ function startFlask() {
     console.error('[desktop] Failed to spawn Flask:', err.message);
     dialog.showErrorBox(
       'Cannot start server',
-      `Could not launch Python.\n\nError: ${err.message}\n\n` +
-      'Please make sure Python 3 is installed and available on your PATH.',
+      `Could not launch the bundled server.\n\nError: ${err.message}\n\n` +
+      'Please reinstall the application or contact support.',
     );
     app.quit();
   });
@@ -320,7 +339,7 @@ app.whenReady().then(async () => {
     dialog.showErrorBox(
       'Startup timeout',
       `The application server did not start in time.\n\nDetails: ${err.message}\n\n` +
-      'Please check that Python and all requirements are installed, then try again.',
+      'Please reinstall the application or contact support.',
     );
     app.quit();
   }

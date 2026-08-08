@@ -2,13 +2,21 @@
   "name": "vanshika-makeover-desktop",
   "version": "1.0.0",
   "description": "Vanshika Makeover Academy — Desktop App (Electron wrapper for the Flask salon ERP)",
+  "homepage": "https://vanshikamakeoveracademy.com",
+  "author": {
+    "name": "Vanshika Makeover Academy",
+    "email": "info.vanshikamakeoveracademy@gmail.com"
+  },
   "main": "main.js",
   "type": "commonjs",
   "scripts": {
     "start": "electron . --no-sandbox",
+    "build:server": "python build_server.py",
+    "predist:linux": "npm run build:server",
+    "predist:win": "npm run build:server",
     "dist:linux": "electron-builder --linux",
     "dist:win": "electron-builder --win",
-    "dist:mac": "electron-builder --mac"
+    "dist:mac": "node build_mac.js"
   },
   "build": {
     "appId": "com.vanshika.makeover.academy",
@@ -24,13 +32,11 @@
     ],
     "extraResources": [
       {
-        "from": "../salon-app",
-        "to": "salon-app",
+        "from": "build-resources",
+        "to": "server",
         "filter": [
-          "**/*",
-          "!**/__pycache__/**",
-          "!**/*.pyc",
-          "!uploads/**"
+          "salon-server",
+          "salon-server.exe"
         ]
       }
     ],
@@ -40,14 +46,13 @@
       ]
     },
     "mac": {
-      "target": [
-        { "target": "dmg", "arch": ["x64", "arm64"] }
-      ],
+      "target": ["dmg"],
       "category": "public.app-category.business"
     },
     "linux": {
       "target": ["AppImage", "deb"],
-      "category": "Office"
+      "category": "Office",
+      "maintainer": "Vanshika Makeover Academy <info.vanshikamakeoveracademy@gmail.com>"
     },
     "nsis": {
       "oneClick": false,

@@ -20,7 +20,7 @@ cd salon-app && python app.py
 On first start the app creates a fresh SQLite database (`salon-app/salon.db`) and prints a one-time bootstrap admin password to the logs.
 
 ### Desktop app (Electron)
-The **Desktop App** workflow launches an Electron window that spawns Flask internally on port 5001 and opens it as a native desktop window.
+The **Desktop App** workflow launches an Electron window that runs Flask internally on port 5001 and opens it as a native desktop window. Development falls back to the local Python installation; distributable installers use a bundled server executable.
 
 ```bash
 cd desktop && node_modules/.bin/electron . --no-sandbox
@@ -33,10 +33,25 @@ Build distributable installers from the `desktop/` directory:
 ```bash
 npm run dist:linux   # → dist/*.AppImage + *.deb  (run on Linux)
 npm run dist:win     # → dist/*.exe NSIS installer (requires Wine on Linux)
-npm run dist:mac     # → dist/*.dmg               (run on macOS)
+npm run dist:mac     # → dist/*.dmg               (run on macOS; native host architecture)
 ```
 
-> **Note:** Installers bundle the Python source files but require Python 3 and the Flask dependencies to be installed on the target machine. Fully self-contained installers (bundled Python runtime) are tracked in a follow-up task.
+## Build a self-contained installer
+
+Python is required only on the build machine. The customer's installed app
+contains a standalone PyInstaller server and does not require Python or Flask.
+
+```bash
+cd desktop
+python -m pip install -r ../salon-app/requirements.txt pyinstaller
+npm run build:server
+npm run dist:win    # or dist:mac / dist:linux
+```
+
+`build-resources/` is platform-specific build output and is intentionally
+gitignored. Build each installer on its target platform. The macOS command
+creates one DMG matching the build Mac's architecture; run it on both Intel
+and Apple Silicon Macs if both variants are required.
 
 ## Stack
 
