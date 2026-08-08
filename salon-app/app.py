@@ -19,12 +19,15 @@ from werkzeug.exceptions import RequestEntityTooLarge
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SESSION_SECRET', 'vanshika-makeover-secret-2024')
-app.config['SESSION_COOKIE_SAMESITE'] = 'None'
-app.config['SESSION_COOKIE_SECURE']   = True
+_desktop_mode = os.environ.get('FLASK_DESKTOP_MODE') == '1'
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax' if _desktop_mode else 'None'
+app.config['SESSION_COOKIE_SECURE']   = False  if _desktop_mode else True
 
-# Trust the Replit HTTPS proxy so Secure cookies work in the preview pane
-from werkzeug.middleware.proxy_fix import ProxyFix
-app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+# Trust the Replit HTTPS proxy so Secure cookies work in the preview pane.
+# Not needed (and counter-productive) when running as a local desktop app.
+if not _desktop_mode:
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # Replit gives Expo Go a dedicated *.expo.pike.replit.dev host. In this
 # multi-artifact workspace that host can fall through to the root Flask

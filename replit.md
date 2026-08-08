@@ -4,7 +4,8 @@ A Flask-based salon management platform with customer-facing booking, admin pane
 
 ## How to run
 
-The **Start application** workflow runs the Flask web server automatically.
+### Web preview
+The **Start application** workflow runs the Flask web server on port 5000.
 
 ```bash
 cd salon-app && python app.py
@@ -14,8 +15,18 @@ cd salon-app && python app.py
 - Admin panel: `/admin`
 - Customer portal: `/my`
 - Staff portal: `/staff`
+- Super-admin: `/superadmin/`
 
 On first start the app creates a fresh SQLite database (`salon-app/salon.db`) and prints a one-time bootstrap admin password to the logs.
+
+### Desktop app (Electron)
+The **Desktop App** workflow launches an Electron window that spawns Flask internally on port 5050 and opens it as a native desktop window.
+
+```bash
+cd artifacts/desktop && pnpm exec electron .
+```
+
+Set `FLASK_DESKTOP_MODE=1` (done automatically by the Electron main process) to disable Secure-cookie requirements when running without an HTTPS proxy.
 
 ## Stack
 

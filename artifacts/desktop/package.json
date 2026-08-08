@@ -1,0 +1,14 @@
+{
+  "name": "@workspace/desktop",
+  "version": "0.0.1",
+  "description": "Salon ERP — desktop wrapper",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron ."
+  },
+  "dependencies": {
+    "electron": "^32.3.3"
+  }
+}
