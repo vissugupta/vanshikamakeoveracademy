@@ -38,6 +38,27 @@ jobs:
         working-directory: desktop
         run: npm ci
 
+      - name: Verify fixed Electron packaging versions
+        working-directory: desktop
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const pkg = require('./package.json');
+          const electron = pkg.devDependencies?.electron;
+          const builder = pkg.devDependencies?.['electron-builder'];
+          const configured = pkg.build?.electronVersion;
+          if (!/^\d+\.\d+\.\d+$/.test(electron || '') ||
+              !/^\d+\.\d+\.\d+$/.test(builder || '') ||
+              configured !== electron) {
+            throw new Error(
+              `Electron packaging versions must be exact. ` +
+              `electron=${electron}, electron-builder=${builder}, ` +
+              `build.electronVersion=${configured}`
+            );
+          }
+          console.log({ electron, builder, configured });
+          NODE
+
       - name: Build PyInstaller server binary
         working-directory: desktop
         run: npm run build:server
@@ -80,6 +101,27 @@ jobs:
       - name: Install Node dependencies
         working-directory: desktop
         run: npm ci
+
+      - name: Verify fixed Electron packaging versions
+        working-directory: desktop
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const pkg = require('./package.json');
+          const electron = pkg.devDependencies?.electron;
+          const builder = pkg.devDependencies?.['electron-builder'];
+          const configured = pkg.build?.electronVersion;
+          if (!/^\d+\.\d+\.\d+$/.test(electron || '') ||
+              !/^\d+\.\d+\.\d+$/.test(builder || '') ||
+              configured !== electron) {
+            throw new Error(
+              `Electron packaging versions must be exact. ` +
+              `electron=${electron}, electron-builder=${builder}, ` +
+              `build.electronVersion=${configured}`
+            );
+          }
+          console.log({ electron, builder, configured });
+          NODE
 
       - name: Build PyInstaller server binary
         working-directory: desktop
