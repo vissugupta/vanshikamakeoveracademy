@@ -19,6 +19,30 @@
 
   <form method="POST" action="{{ url_for('admin_messaging') }}" id="messaging-form">
 
+    <!-- ── Key-mismatch warning ──────────────────────────────────── -->
+    {% if cred_status.key_mismatch %}
+    <div class="rounded-2xl px-4 py-4 flex items-start gap-3"
+         style="background:#1f0808;border:1px solid #dc2626;">
+      <i class="fa-solid fa-shield-exclamation text-base flex-shrink-0 mt-0.5" style="color:#f87171;"></i>
+      <div class="space-y-1.5">
+        <p class="text-sm font-bold" style="color:#fca5a5;">Credential Decryption Failed — App Secret Changed?</p>
+        <p class="text-xs" style="color:#fca5a5;">
+          One or more saved credentials cannot be decrypted with the current
+          <code style="color:#fbbf24;">SESSION_SECRET</code>. This happens when the secret is rotated
+          or when the app is moved to a new environment. Notifications are currently broken.
+        </p>
+        <p class="text-xs" style="color:#ef4444;">
+          Affected: <strong style="color:#fbbf24;">{{ cred_status.key_mismatch_fields | join(', ') }}</strong>
+        </p>
+        <p class="text-xs" style="color:#fca5a5;">
+          <strong style="color:#fbbf24;">What to do:</strong>
+          Re-enter the affected credentials below and click <em>Save All Credentials</em>.
+          The new values will be re-encrypted with the current secret.
+        </p>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- ── Channel health summary ────────────────────────────────── -->
     <div class="stat-card space-y-2">
       <div class="ornament-line mb-2">
@@ -26,40 +50,50 @@
       </div>
       <p class="text-xs mb-3" style="color:#6e6058;">Quick status of each messaging channel based on saved credentials.</p>
       <div class="grid grid-cols-2 gap-2">
+        {% set gp_ok = cred_status.gmail_password %}
+        {% set gp_mm = cred_status.gmail_password_mismatch %}
         <div class="flex items-center gap-2 rounded-xl px-3 py-2"
-             style="background:{{ '#0d1f14' if cred_status.gmail_password else '#1f0d0d' }};border:1px solid {{ '#6ee7b7' if cred_status.gmail_password else '#f87171' }};">
-          <span class="text-sm">{{ '✅' if cred_status.gmail_password else '❌' }}</span>
+             style="background:{{ '#0d1f14' if gp_ok else ('#1f0808' if gp_mm else '#1f0d0d') }};border:1px solid {{ '#6ee7b7' if gp_ok else ('#dc2626' if gp_mm else '#f87171') }};">
+          <span class="text-sm">{{ '✅' if gp_ok else ('🔑' if gp_mm else '❌') }}</span>
           <div>
-            <div class="text-xs font-semibold" style="color:{{ '#6ee7b7' if cred_status.gmail_password else '#f87171' }};">Gmail / OTP Email</div>
-            <div class="text-xs" style="color:#6e6058;">{{ 'Configured' if cred_status.gmail_password else 'Not configured' }}</div>
+            <div class="text-xs font-semibold" style="color:{{ '#6ee7b7' if gp_ok else ('#f87171' if gp_mm else '#f87171') }};">Gmail / OTP Email</div>
+            <div class="text-xs" style="color:#6e6058;">{{ 'Configured' if gp_ok else ('Re-enter required' if gp_mm else 'Not configured') }}</div>
           </div>
         </div>
+        {% set f2s_ok = cred_status.fast2sms_key %}
+        {% set f2s_mm = cred_status.fast2sms_key_mismatch %}
         <div class="flex items-center gap-2 rounded-xl px-3 py-2"
-             style="background:{{ '#0d1f14' if cred_status.fast2sms_key else '#1f0d0d' }};border:1px solid {{ '#6ee7b7' if cred_status.fast2sms_key else '#f87171' }};">
-          <span class="text-sm">{{ '✅' if cred_status.fast2sms_key else '❌' }}</span>
+             style="background:{{ '#0d1f14' if f2s_ok else ('#1f0808' if f2s_mm else '#1f0d0d') }};border:1px solid {{ '#6ee7b7' if f2s_ok else ('#dc2626' if f2s_mm else '#f87171') }};">
+          <span class="text-sm">{{ '✅' if f2s_ok else ('🔑' if f2s_mm else '❌') }}</span>
           <div>
-            <div class="text-xs font-semibold" style="color:{{ '#6ee7b7' if cred_status.fast2sms_key else '#f87171' }};">Customer OTP SMS</div>
-            <div class="text-xs" style="color:#6e6058;">{{ 'Configured' if cred_status.fast2sms_key else 'Not configured' }}</div>
+            <div class="text-xs font-semibold" style="color:{{ '#6ee7b7' if f2s_ok else '#f87171' }};">Customer OTP SMS</div>
+            <div class="text-xs" style="color:#6e6058;">{{ 'Configured' if f2s_ok else ('Re-enter required' if f2s_mm else 'Not configured') }}</div>
           </div>
         </div>
+        {% set tw_ok = cred_status.twilio_sid and cred_status.twilio_token %}
+        {% set tw_mm = cred_status.twilio_sid_mismatch or cred_status.twilio_token_mismatch %}
         <div class="flex items-center gap-2 rounded-xl px-3 py-2"
-             style="background:{{ '#0d1f14' if (cred_status.twilio_sid and cred_status.twilio_token) else '#1a1a0d' }};border:1px solid {{ '#6ee7b7' if (cred_status.twilio_sid and cred_status.twilio_token) else '#a3a300' }};">
-          <span class="text-sm">{{ '✅' if (cred_status.twilio_sid and cred_status.twilio_token) else '⚠️' }}</span>
+             style="background:{{ '#0d1f14' if tw_ok else ('#1f0808' if tw_mm else '#1a1a0d') }};border:1px solid {{ '#6ee7b7' if tw_ok else ('#dc2626' if tw_mm else '#a3a300') }};">
+          <span class="text-sm">{{ '✅' if tw_ok else ('🔑' if tw_mm else '⚠️') }}</span>
           <div>
-            <div class="text-xs font-semibold" style="color:{{ '#6ee7b7' if (cred_status.twilio_sid and cred_status.twilio_token) else '#facc15' }};">Owner SMS (Twilio)</div>
-            <div class="text-xs" style="color:#6e6058;">{{ 'Configured' if (cred_status.twilio_sid and cred_status.twilio_token) else 'Optional' }}</div>
+            <div class="text-xs font-semibold" style="color:{{ '#6ee7b7' if tw_ok else ('#f87171' if tw_mm else '#facc15') }};">Owner SMS (Twilio)</div>
+            <div class="text-xs" style="color:#6e6058;">{{ 'Configured' if tw_ok else ('Re-enter required' if tw_mm else 'Optional') }}</div>
           </div>
         </div>
+        {% set wa_ok = cred_status.whatsapp_token and cred_status.whatsapp_phone_id %}
+        {% set wa_mm = cred_status.whatsapp_token_mismatch %}
         <div class="flex items-center gap-2 rounded-xl px-3 py-2"
-             style="background:{{ '#0d1f14' if (cred_status.whatsapp_token and cred_status.whatsapp_phone_id) else '#1a1a0d' }};border:1px solid {{ '#6ee7b7' if (cred_status.whatsapp_token and cred_status.whatsapp_phone_id) else '#a3a300' }};">
-          <span class="text-sm">{{ '✅' if (cred_status.whatsapp_token and cred_status.whatsapp_phone_id) else '⚠️' }}</span>
+             style="background:{{ '#0d1f14' if wa_ok else ('#1f0808' if wa_mm else '#1a1a0d') }};border:1px solid {{ '#6ee7b7' if wa_ok else ('#dc2626' if wa_mm else '#a3a300') }};">
+          <span class="text-sm">{{ '✅' if wa_ok else ('🔑' if wa_mm else '⚠️') }}</span>
           <div>
-            <div class="text-xs font-semibold" style="color:{{ '#6ee7b7' if (cred_status.whatsapp_token and cred_status.whatsapp_phone_id) else '#facc15' }};">WhatsApp</div>
-            <div class="text-xs" style="color:#6e6058;">{{ 'Configured' if (cred_status.whatsapp_token and cred_status.whatsapp_phone_id) else 'Optional' }}</div>
+            <div class="text-xs font-semibold" style="color:{{ '#6ee7b7' if wa_ok else ('#f87171' if wa_mm else '#facc15') }};">WhatsApp</div>
+            <div class="text-xs" style="color:#6e6058;">{{ 'Configured' if wa_ok else ('Re-enter required' if wa_mm else 'Optional') }}</div>
           </div>
         </div>
       </div>
-      {% if not cred_status.gmail_password or not cred_status.fast2sms_key %}
+      {% if cred_status.key_mismatch %}
+      {# key-mismatch already handled by the top-level banner above #}
+      {% elif not cred_status.gmail_password or not cred_status.fast2sms_key %}
       <div class="rounded-xl px-3 py-2 mt-1 flex items-start gap-2"
            style="background:#2a1a00;border:1px solid #b45309;">
         <i class="fa-solid fa-triangle-exclamation text-xs mt-0.5 flex-shrink-0" style="color:#f59e0b;"></i>
@@ -96,12 +130,14 @@
       <div>
         <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">
           Gmail App Password
-          {% if cred_status.gmail_password %}
+          {% if cred_status.gmail_password_mismatch %}
+          <span class="ml-2 text-xs font-semibold" style="color:#f87171;">⚠ Re-enter required</span>
+          {% elif cred_status.gmail_password %}
           <span class="ml-2 badge badge-green text-xs">● Saved</span>
           {% endif %}
         </label>
         <input type="password" name="gmail_password"
-               placeholder="{{ '●●●●●●●●●●●● (leave blank to keep current)' if cred_status.gmail_password else 'Google Account → Security → App Passwords' }}"
+               placeholder="{{ '⚠ Decryption failed — please re-enter' if cred_status.gmail_password_mismatch else ('●●●●●●●●●●●● (leave blank to keep current)' if cred_status.gmail_password else 'Google Account → Security → App Passwords') }}"
                autocomplete="new-password"
                class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
                style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
@@ -128,12 +164,14 @@
         <div>
           <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">
             Account SID
-            {% if cred_status.twilio_sid %}
+            {% if cred_status.twilio_sid_mismatch %}
+            <span class="ml-2 text-xs font-semibold" style="color:#f87171;">⚠ Re-enter required</span>
+            {% elif cred_status.twilio_sid %}
             <span class="ml-2 badge badge-green text-xs">● Saved</span>
             {% endif %}
           </label>
           <input type="password" name="twilio_sid"
-                 placeholder="{{ '●●●●●●●●●●●● (leave blank to keep current)' if cred_status.twilio_sid else 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' }}"
+                 placeholder="{{ '⚠ Decryption failed — please re-enter' if cred_status.twilio_sid_mismatch else ('●●●●●●●●●●●● (leave blank to keep current)' if cred_status.twilio_sid else 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx') }}"
                  autocomplete="new-password"
                  class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
                  style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
@@ -141,12 +179,14 @@
         <div>
           <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">
             Auth Token
-            {% if cred_status.twilio_token %}
+            {% if cred_status.twilio_token_mismatch %}
+            <span class="ml-2 text-xs font-semibold" style="color:#f87171;">⚠ Re-enter required</span>
+            {% elif cred_status.twilio_token %}
             <span class="ml-2 badge badge-green text-xs">● Saved</span>
             {% endif %}
           </label>
           <input type="password" name="twilio_token"
-                 placeholder="{{ '●●●●●●●●●●●● (leave blank to keep current)' if cred_status.twilio_token else 'Your Twilio Auth Token' }}"
+                 placeholder="{{ '⚠ Decryption failed — please re-enter' if cred_status.twilio_token_mismatch else ('●●●●●●●●●●●● (leave blank to keep current)' if cred_status.twilio_token else 'Your Twilio Auth Token') }}"
                  autocomplete="new-password"
                  class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
                  style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
@@ -179,12 +219,14 @@
         <div>
           <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">
             Access Token
-            {% if cred_status.whatsapp_token %}
+            {% if cred_status.whatsapp_token_mismatch %}
+            <span class="ml-2 text-xs font-semibold" style="color:#f87171;">⚠ Re-enter required</span>
+            {% elif cred_status.whatsapp_token %}
             <span class="ml-2 badge badge-green text-xs">● Saved</span>
             {% endif %}
           </label>
           <input type="password" name="whatsapp_token"
-                 placeholder="{{ '●●●●●●●●●●●● (leave blank to keep current)' if cred_status.whatsapp_token else 'EAAxxxxxxxx… (Meta developer token)' }}"
+                 placeholder="{{ '⚠ Decryption failed — please re-enter' if cred_status.whatsapp_token_mismatch else ('●●●●●●●●●●●● (leave blank to keep current)' if cred_status.whatsapp_token else 'EAAxxxxxxxx… (Meta developer token)') }}"
                  autocomplete="new-password"
                  class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
                  style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />
@@ -234,12 +276,14 @@
       <div>
         <label class="block text-xs font-semibold mb-1" style="color:#c9a96e;">
           Fast2SMS API Key
-          {% if cred_status.fast2sms_key %}
+          {% if cred_status.fast2sms_key_mismatch %}
+          <span class="ml-2 text-xs font-semibold" style="color:#f87171;">⚠ Re-enter required</span>
+          {% elif cred_status.fast2sms_key %}
           <span class="ml-2 badge badge-green text-xs">● Saved</span>
           {% endif %}
         </label>
         <input type="password" name="fast2sms_key"
-               placeholder="{{ '●●●●●●●●●●●● (leave blank to keep current)' if cred_status.fast2sms_key else 'Your Fast2SMS API key from fast2sms.com' }}"
+               placeholder="{{ '⚠ Decryption failed — please re-enter' if cred_status.fast2sms_key_mismatch else ('●●●●●●●●●●●● (leave blank to keep current)' if cred_status.fast2sms_key else 'Your Fast2SMS API key from fast2sms.com') }}"
                autocomplete="new-password"
                class="w-full rounded-xl px-4 py-2.5 text-sm outline-none"
                style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8;" />

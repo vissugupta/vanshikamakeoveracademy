@@ -4260,20 +4260,50 @@ def admin_messaging():
         flash('Messaging credentials saved successfully!', 'success')
         return redirect(url_for('admin_messaging'))
 
-    # Build a "status" dict for the template (True = credential stored)
-    def _is_set(field):
-        return bool(row and row[field])
+    # Build a "status" dict for the template.
+    # For each encrypted field, distinguish three states:
+    #   None  → not stored in DB at all
+    #   True  → stored and decrypts successfully with current SESSION_SECRET
+    #   False → stored but decryption fails (SESSION_SECRET mismatch / tampered)
+    def _decrypt_status(field):
+        if not (row and row[field]):
+            return None
+        decrypted = decrypt_cred(row[field])
+        return bool(decrypted)
+
+    gp  = _decrypt_status('gmail_password')
+    ts  = _decrypt_status('twilio_sid')
+    tt  = _decrypt_status('twilio_token')
+    wat = _decrypt_status('whatsapp_token')
+    f2s = _decrypt_status('fast2sms_key')
+
+    # Collect human-readable names of fields that are stored but cannot be decrypted
+    _MISMATCH_LABELS = [
+        ('Gmail Password',   gp),
+        ('Twilio SID',       ts),
+        ('Twilio Auth Token',tt),
+        ('WhatsApp Token',   wat),
+        ('Fast2SMS Key',     f2s),
+    ]
+    key_mismatch_fields = [label for label, ok in _MISMATCH_LABELS if ok is False]
 
     cred_status = {
-        'gmail_user':            row['gmail_user'] if row else '',
-        'gmail_password':        _is_set('gmail_password'),
-        'twilio_sid':            _is_set('twilio_sid'),
-        'twilio_token':          _is_set('twilio_token'),
-        'twilio_number':         row['twilio_number'] if row else '',
-        'whatsapp_token':        _is_set('whatsapp_token'),
-        'whatsapp_phone_id':     row['whatsapp_phone_id'] if row else '',
-        'whatsapp_otp_template': row['whatsapp_otp_template'] if row else 'vanshika_otp',
-        'fast2sms_key':          _is_set('fast2sms_key'),
+        'gmail_user':               row['gmail_user'] if row else '',
+        'gmail_password':           gp is True,
+        'gmail_password_mismatch':  gp is False,
+        'twilio_sid':               ts is True,
+        'twilio_sid_mismatch':      ts is False,
+        'twilio_token':             tt is True,
+        'twilio_token_mismatch':    tt is False,
+        'twilio_number':            row['twilio_number'] if row else '',
+        'whatsapp_token':           wat is True,
+        'whatsapp_token_mismatch':  wat is False,
+        'whatsapp_phone_id':        row['whatsapp_phone_id'] if row else '',
+        'whatsapp_otp_template':    row['whatsapp_otp_template'] if row else 'vanshika_otp',
+        'fast2sms_key':             f2s is True,
+        'fast2sms_key_mismatch':    f2s is False,
+        'key_mismatch':             bool(key_mismatch_fields),
+        'key_mismatch_fields':      key_mismatch_fields,
     }
     return render_template('admin_messaging.html', cred_status=cred_status, **get_admin_context())
 
