@@ -951,7 +951,16 @@ def book():
             app.logger.error(f'Booking email OTP error: {e}')
             email_sent = False
         if not email_sent:
-            errors.append('We could not send the verification email. Please check the email address and try again.')
+            _salon = getattr(g, 'salon', None)
+            _phone = _salon['phone'] if _salon and _salon['phone'] else ''
+            if _phone:
+                errors.append(
+                    f"We couldn't send your verification OTP — please call us at {_phone} to book directly."
+                )
+            else:
+                errors.append(
+                    "We couldn't send your verification OTP. Please try again or call the salon to book directly."
+                )
             return render_template('book.html', services=services,
                                    time_slots=TIME_SLOTS, errors=errors,
                                    form=request.form)
@@ -1319,6 +1328,14 @@ def admin_dashboard():
         ORDER BY cm.expiry_date ASC
     ''', (bid, today_str, today_str)).fetchall()
 
+    # Check if required messaging credentials are missing
+    try:
+        from notifications import get_messaging_creds as _get_creds
+        _creds = _get_creds()
+        messaging_warning = not _creds.get('gmail_password') or not _creds.get('fast2sms_key')
+    except Exception:
+        messaging_warning = True
+
     return render_template('admin_dashboard.html',
                            total_bookings=total_bookings,
                            total_customers=total_customers,
@@ -1336,6 +1353,7 @@ def admin_dashboard():
                            upcoming_appts=upcoming_appts,
                            recent_invoices=recent_invoices,
                            expiring_memberships=expiring_memberships,
+                           messaging_warning=messaging_warning,
                            **get_admin_context())
 
 

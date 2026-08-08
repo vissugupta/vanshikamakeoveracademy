@@ -3,6 +3,23 @@
 {% block page_title %}Dashboard{% endblock %}
 
 {% block content %}
+<!-- Messaging credentials warning banner -->
+{% if messaging_warning %}
+<div class="rounded-2xl p-3 mb-4 flex items-start gap-3"
+     style="background:#2a1a00;border:1px solid #b45309;">
+  <i class="fa-solid fa-triangle-exclamation flex-shrink-0 mt-0.5" style="color:#f59e0b;"></i>
+  <div class="flex-1 min-w-0">
+    <p class="font-semibold text-sm" style="color:#fbbf24;">Messaging not configured</p>
+    <p class="text-xs mt-0.5" style="color:#d97706;">
+      OTP delivery is disabled — customers cannot complete bookings online.
+      <a href="{{ url_for('admin_messaging') }}" class="underline font-semibold" style="color:#fbbf24;">Set up credentials →</a>
+    </p>
+  </div>
+  <a href="{{ url_for('admin_messaging') }}" class="flex-shrink-0 text-xs font-bold rounded-lg px-3 py-1.5"
+     style="background:#b45309;color:#fff;">Fix</a>
+</div>
+{% endif %}
+
 <!-- Revenue cards -->
 <div class="grid grid-cols-3 gap-2 mb-3">
   <div class="stat-card text-center" style="border-color:#6ee7b7;">

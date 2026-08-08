@@ -19,6 +19,64 @@
 
   <form method="POST" action="{{ url_for('admin_messaging') }}" id="messaging-form">
 
+    <!-- ── Channel health summary ────────────────────────────────── -->
+    <div class="stat-card space-y-2">
+      <div class="ornament-line mb-2">
+        <i class="fa-solid fa-heart-pulse mr-1"></i> Channel Health
+      </div>
+      <p class="text-xs mb-3" style="color:#6e6058;">Quick status of each messaging channel based on saved credentials.</p>
+      <div class="grid grid-cols-2 gap-2">
+        <div class="flex items-center gap-2 rounded-xl px-3 py-2"
+             style="background:{{ '#0d1f14' if cred_status.gmail_password else '#1f0d0d' }};border:1px solid {{ '#6ee7b7' if cred_status.gmail_password else '#f87171' }};">
+          <span class="text-sm">{{ '✅' if cred_status.gmail_password else '❌' }}</span>
+          <div>
+            <div class="text-xs font-semibold" style="color:{{ '#6ee7b7' if cred_status.gmail_password else '#f87171' }};">Gmail / OTP Email</div>
+            <div class="text-xs" style="color:#6e6058;">{{ 'Configured' if cred_status.gmail_password else 'Not configured' }}</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 rounded-xl px-3 py-2"
+             style="background:{{ '#0d1f14' if cred_status.fast2sms_key else '#1f0d0d' }};border:1px solid {{ '#6ee7b7' if cred_status.fast2sms_key else '#f87171' }};">
+          <span class="text-sm">{{ '✅' if cred_status.fast2sms_key else '❌' }}</span>
+          <div>
+            <div class="text-xs font-semibold" style="color:{{ '#6ee7b7' if cred_status.fast2sms_key else '#f87171' }};">Customer OTP SMS</div>
+            <div class="text-xs" style="color:#6e6058;">{{ 'Configured' if cred_status.fast2sms_key else 'Not configured' }}</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 rounded-xl px-3 py-2"
+             style="background:{{ '#0d1f14' if (cred_status.twilio_sid and cred_status.twilio_token) else '#1a1a0d' }};border:1px solid {{ '#6ee7b7' if (cred_status.twilio_sid and cred_status.twilio_token) else '#a3a300' }};">
+          <span class="text-sm">{{ '✅' if (cred_status.twilio_sid and cred_status.twilio_token) else '⚠️' }}</span>
+          <div>
+            <div class="text-xs font-semibold" style="color:{{ '#6ee7b7' if (cred_status.twilio_sid and cred_status.twilio_token) else '#facc15' }};">Owner SMS (Twilio)</div>
+            <div class="text-xs" style="color:#6e6058;">{{ 'Configured' if (cred_status.twilio_sid and cred_status.twilio_token) else 'Optional' }}</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 rounded-xl px-3 py-2"
+             style="background:{{ '#0d1f14' if (cred_status.whatsapp_token and cred_status.whatsapp_phone_id) else '#1a1a0d' }};border:1px solid {{ '#6ee7b7' if (cred_status.whatsapp_token and cred_status.whatsapp_phone_id) else '#a3a300' }};">
+          <span class="text-sm">{{ '✅' if (cred_status.whatsapp_token and cred_status.whatsapp_phone_id) else '⚠️' }}</span>
+          <div>
+            <div class="text-xs font-semibold" style="color:{{ '#6ee7b7' if (cred_status.whatsapp_token and cred_status.whatsapp_phone_id) else '#facc15' }};">WhatsApp</div>
+            <div class="text-xs" style="color:#6e6058;">{{ 'Configured' if (cred_status.whatsapp_token and cred_status.whatsapp_phone_id) else 'Optional' }}</div>
+          </div>
+        </div>
+      </div>
+      {% if not cred_status.gmail_password or not cred_status.fast2sms_key %}
+      <div class="rounded-xl px-3 py-2 mt-1 flex items-start gap-2"
+           style="background:#2a1a00;border:1px solid #b45309;">
+        <i class="fa-solid fa-triangle-exclamation text-xs mt-0.5 flex-shrink-0" style="color:#f59e0b;"></i>
+        <p class="text-xs" style="color:#d97706;">
+          <strong style="color:#fbbf24;">Action required:</strong>
+          {% if not cred_status.gmail_password and not cred_status.fast2sms_key %}
+            Gmail and Fast2SMS are both missing — customers cannot complete online bookings.
+          {% elif not cred_status.gmail_password %}
+            Gmail password is missing — OTP emails will not be sent.
+          {% else %}
+            Fast2SMS API key is missing — OTP SMS delivery will not work.
+          {% endif %}
+        </p>
+      </div>
+      {% endif %}
+    </div>
+
     <!-- ── Gmail ─────────────────────────────────────────────────── -->
     <div class="stat-card space-y-4">
       <div class="ornament-line mb-1">
