@@ -14,3 +14,10 @@ uri = "file://vanshikamakeoveracademy-github-source.zip"
 type = "unspecified"
 title = "Vanshika Makeover Academy — GitHub Source ZIP"
 description = "Clean source archive ready to upload to a new GitHub repository. Excludes local databases, dependencies, build output, uploads, secrets, and Replit-only metadata."
+
+[[outputs]]
+id = "jagjRYGjhcqSfJka0RHlw"
+uri = "file://updated-vanshikamakeoveracademy-github-source.zip"
+type = "unspecified"
+title = "Updated Vanshika Makeover Academy GitHub Source"
+description = "Updated source archive with Electron pinned to 31.7.7, fixing the electron-builder version error. Includes the Windows release workflow."
