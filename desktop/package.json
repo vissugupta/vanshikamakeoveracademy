@@ -51,6 +51,7 @@
         }
       ]
     },
+    "electronVersion": "31.7.7",
     "mac": {
       "target": [
         "dmg"
@@ -86,6 +87,6 @@
   },
   "devDependencies": {
     "electron": "31.7.7",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "24.13.3"
   }
 }
