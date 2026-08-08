@@ -57,6 +57,83 @@ detects the build Mac's architecture and produces one matching DMG:
 Do not use one Mac build to advertise both architectures. Run the command on
 each architecture when both DMGs are needed.
 
+## Publishing releases with GitHub Actions
+
+The workflow at `.github/workflows/desktop-release.yml` builds Windows and Linux
+installers automatically whenever you push a version tag. It needs a one-time
+secret so it can upload the installer files to GitHub Releases.
+
+### Step 1 — Create a GitHub personal access token
+
+You only need to do this once.
+
+**Option A — Fine-grained token (recommended)**
+
+1. Go to **GitHub → Settings → Developer settings → Personal access tokens →
+   Fine-grained tokens**.
+2. Click **Generate new token**.
+3. Set a descriptive name, e.g. `vanshika-desktop-releases`.
+4. Under **Repository access**, choose **Only select repositories** and pick
+   this repository.
+5. Under **Permissions → Repository permissions**, set **Contents** to
+   **Read and write**. No other permissions are needed.
+6. Click **Generate token** and copy the value immediately (it is shown only once).
+
+**Option B — Classic token**
+
+1. Go to **GitHub → Settings → Developer settings → Personal access tokens →
+   Tokens (classic)**.
+2. Click **Generate new token (classic)**.
+3. Give it a name and tick only the **`repo`** scope (this includes contents
+   write access).
+4. Click **Generate token** and copy the value.
+
+### Step 2 — Add the token as a repository secret
+
+1. Open the repository on GitHub and go to
+   **Settings → Secrets and variables → Actions**.
+2. Click **New repository secret**.
+3. Set the name to exactly **`GH_TOKEN`** (case-sensitive).
+4. Paste the token value and click **Add secret**.
+
+The workflow reads this secret as `${{ secrets.GH_TOKEN }}` — the name must
+match exactly.
+
+### Step 3 — Tag a release to trigger the workflow
+
+The workflow runs whenever a tag that matches `v*.*.*` is pushed:
+
+```bash
+# In the repository root, tag the commit you want to release
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Use [semantic versioning](https://semver.org/): `v<major>.<minor>.<patch>`.
+Examples: `v1.0.0` for the first release, `v1.0.1` for a small bug-fix,
+`v1.1.0` for a new feature.
+
+### Step 4 — Verify a successful release
+
+1. Go to the repository on GitHub and click the **Actions** tab.
+2. Find the run called **Desktop Release** that was triggered by your tag.
+3. Both the `Build Windows installer` and `Build Linux packages` jobs should
+   show a green ✓. If either shows a red ✗, click the job name to read the
+   build log and find the error.
+4. Once both jobs pass, open the **Releases** page of the repository
+   (right-hand sidebar or `https://github.com/<owner>/<repo>/releases`).
+5. A new release named after your tag (e.g. `v1.0.0`) should appear there,
+   with the Windows `.exe` installer and Linux `.AppImage` / `.deb` files
+   attached as downloadable assets.
+
+> **Tip:** If the release appears but assets are missing, or if the workflow
+> fails with a `403` or "resource not accessible by integration" error, double-
+> check that:
+> - The secret is named exactly `GH_TOKEN`.
+> - The token has **Contents: Read and write** (fine-grained) or the **`repo`**
+>   scope (classic).
+> - The token has not expired.
+
 ## File layout
 
 ```
