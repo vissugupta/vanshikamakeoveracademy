@@ -1,0 +1,14 @@
+# Database — created automatically on first start
+salon.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Uploads
+static/uploads/
