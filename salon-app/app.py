@@ -202,56 +202,37 @@ def close_connection(exception):
 
 
 @app.before_request
-def load_tenant():
-    """Attach the active tenant to g on every non-static request.
-
-    Priority order for public (unauthenticated) requests:
-      1. ?tenant=<slug> query parameter  — lets customers reach any salon directly
-      2. session['tenant_id']            — set on admin/staff login
-      3. first active tenant             — backward-compatible fallback
-    """
+def load_salon():
+    """Attach this installation's single salon profile to every request."""
     if request.endpoint == 'static':
         return
     # Expo proxy already handled these and returned early
     if '.expo.' in request.host.split(':', 1)[0].lower():
         return
-    db = get_db()
-    t  = None
-
-    # 1. Slug from ?tenant= query param (public customer-facing mechanism)
-    slug = request.args.get('tenant', '').strip().lower()
-    if slug:
-        t = db.execute(
-            'SELECT * FROM tenants WHERE slug=? AND is_active=1', (slug,)
-        ).fetchone()
-        if t:
-            # Persist for the session so subsequent form POSTs keep context
-            session['tenant_id'] = t['id']
-
-    # 2. Authenticated session tenant
-    if not t:
-        tid = session.get('tenant_id')
-        if tid:
-            t = db.execute('SELECT * FROM tenants WHERE id=?', (tid,)).fetchone()
-
-    # 3. Fallback: first active tenant (keeps single-salon installs working)
-    if not t:
-        t = db.execute(
-            'SELECT * FROM tenants WHERE is_active=1 ORDER BY id LIMIT 1'
-        ).fetchone()
-
-    g.tenant = t
+    g.salon = get_db().execute(
+        'SELECT * FROM salon_settings WHERE id=1'
+    ).fetchone()
 
 
 @app.context_processor
-def inject_tenant():
-    """Make tenant + logo URL available in every template automatically."""
-    t = getattr(g, 'tenant', None)
-    if t and t['logo_filename'] and t['logo_filename'] != 'brand-logo.jpeg':
-        logo_url = url_for('static', filename=f"logos/{t['logo_filename']}")
+def inject_salon():
+    """Make the local salon profile + logo URL available to all templates.
+
+    ``tenant`` remains as a template compatibility alias for installations
+    upgraded from the earlier white-label build; it is always the one local
+    salon and can never be selected or switched.
+    """
+    salon = getattr(g, 'salon', None)
+    if salon and salon['logo_filename'] and salon['logo_filename'] != 'brand-logo.jpeg':
+        logo_url = url_for('static', filename=f"logos/{salon['logo_filename']}")
     else:
         logo_url = url_for('static', filename='brand-logo.jpeg')
-    return {'tenant': t, 'tenant_logo_url': logo_url}
+    return {
+        'salon': salon,
+        'tenant': salon,
+        'salon_logo_url': logo_url,
+        'tenant_logo_url': logo_url,
+    }
 
 
 @app.errorhandler(RequestEntityTooLarge)
@@ -270,11 +251,10 @@ def init_db():
     with app.app_context():
         db = get_db()
 
-        # ── Tenant table (must come first — other tables reference it) ────────
-        db.execute('''CREATE TABLE IF NOT EXISTS tenants (
+        # ── One local salon profile (one database = one customer) ────────────
+        db.execute('''CREATE TABLE IF NOT EXISTS salon_settings (
             id            INTEGER PRIMARY KEY AUTOINCREMENT,
             name          TEXT    NOT NULL,
-            slug          TEXT    NOT NULL UNIQUE,
             tagline       TEXT    DEFAULT '',
             logo_filename TEXT    DEFAULT 'brand-logo.jpeg',
             primary_color TEXT    DEFAULT '#c9a96e',
@@ -283,7 +263,6 @@ def init_db():
             phone         TEXT,
             email         TEXT,
             address       TEXT,
-            is_active     INTEGER DEFAULT 1,
             created_at    TEXT    DEFAULT CURRENT_TIMESTAMP
         )''')
 
@@ -513,7 +492,7 @@ def init_db():
 
         db.commit()
         _migrate_db(db)
-        _seed_default_tenant(db)
+        _seed_salon_settings(db)
         _seed_default_branch(db)
         _seed_services(db)
         _backfill_customers(db)
@@ -535,9 +514,6 @@ def _migrate_db(db):
          ('customers',      'points_reserved',  'INTEGER DEFAULT 0'),
          ('customers',      'loyalty_points_expiry_date', 'TEXT'),
         ('appointments',   'booking_token',     'TEXT'),
-        # Multi-tenant columns
-        ('admin_users',    'tenant_id',        'INTEGER DEFAULT 1'),
-        ('branches',       'tenant_id',        'INTEGER DEFAULT 1'),
     ]
     for table, col, defn in migrations:
         try:
@@ -572,32 +548,47 @@ def _migrate_db(db):
     db.commit()
 
 
-def _seed_default_tenant(db):
-    """Seed the first tenant (the original salon) if no tenants exist yet."""
-    cnt = db.execute('SELECT COUNT(*) as cnt FROM tenants').fetchone()['cnt']
-    if cnt == 0:
-        db.execute('''INSERT INTO tenants
-                      (name, slug, tagline, logo_filename,
-                       primary_color, accent_color, bg_color,
-                       phone, email, address)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                   ('Vanshika Makeover Academy', 'vanshika', 'Makeover Academy',
-                    'brand-logo.jpeg', '#c9a96e', '#d4af37', '#0a0a0a',
-                    '+91 98992 23426', 'owner@vanshika.com', 'Main Branch'))
-        db.commit()
-    # Back-fill existing admin_users and branches that pre-date multi-tenancy
-    db.execute("UPDATE admin_users SET tenant_id=1 WHERE tenant_id IS NULL")
-    db.execute("UPDATE branches    SET tenant_id=1 WHERE tenant_id IS NULL")
+def _seed_salon_settings(db):
+    """Create the one local salon profile, migrating an older white-label DB."""
+    columns = {row['name'] for row in db.execute('PRAGMA table_info(salon_settings)').fetchall()}
+    if not columns:
+        return
+    existing = db.execute('SELECT id FROM salon_settings WHERE id=1').fetchone()
+    if not existing:
+        legacy = None
+        try:
+            legacy = db.execute('SELECT * FROM tenants ORDER BY id LIMIT 1').fetchone()
+        except sqlite3.OperationalError:
+            pass
+        values = (
+            legacy['name'] if legacy else 'Vanshika Makeover Academy',
+            legacy['tagline'] if legacy else 'Makeover Academy',
+            legacy['logo_filename'] if legacy else 'brand-logo.jpeg',
+            legacy['primary_color'] if legacy else '#c9a96e',
+            legacy['accent_color'] if legacy else '#d4af37',
+            legacy['bg_color'] if legacy else '#0a0a0a',
+            legacy['phone'] if legacy else '+91 98992 23426',
+            legacy['email'] if legacy else 'owner@vanshika.com',
+            legacy['address'] if legacy else 'Main Branch',
+        )
+        db.execute('''INSERT INTO salon_settings
+                      (id, name, tagline, logo_filename, primary_color,
+                       accent_color, bg_color, phone, email, address)
+                      VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', values)
+    # A legacy white-label database may have stored the primary branch and
+    # owner under tenant_id=1. Those columns are harmless legacy data; the
+    # single-salon app no longer reads or writes them.
+    db.commit()
     db.commit()
 
 
 def _seed_default_branch(db):
     cnt = db.execute('SELECT COUNT(*) as cnt FROM branches').fetchone()['cnt']
     if cnt == 0:
-        db.execute('''INSERT INTO branches (name, address, phone, manager_name, tenant_id)
-                      VALUES (?, ?, ?, ?, ?)''',
+        db.execute('''INSERT INTO branches (name, address, phone, manager_name)
+                      VALUES (?, ?, ?, ?)''',
                    ('Vanshika Makeover Academy', 'Main Branch',
-                    '+91 98992 23426', 'Vanshika', 1))
+                    '+91 98992 23426', 'Vanshika'))
         db.commit()
 
 
@@ -652,30 +643,13 @@ def _seed_admin_users(db):
                 f'  Set ADMIN_BOOTSTRAP_PASSWORD env var to choose your own.\n' +
                 '='*60
             )
-        db.execute('''INSERT INTO admin_users (email, password_hash, full_name, role, tenant_id)
-                      VALUES (?, ?, ?, ?, ?)''',
+        db.execute('''INSERT INTO admin_users (email, password_hash, full_name, role)
+                      VALUES (?, ?, ?, ?)''',
                    ('owner@vanshika.com',
                     generate_password_hash(bootstrap_pwd),
                     'Vanshika (Owner)',
-                    'owner', 1))
+                    'owner'))
         db.commit()
-
-    # Create the platform super-admin if credentials are configured
-    sa_email    = os.environ.get('SUPERADMIN_EMAIL', '').strip().lower()
-    sa_password = os.environ.get('SUPERADMIN_PASSWORD', '').strip()
-    if sa_email and sa_password:
-        existing = db.execute(
-            "SELECT id FROM admin_users WHERE email=?", (sa_email,)
-        ).fetchone()
-        if not existing:
-            db.execute('''INSERT INTO admin_users
-                          (email, password_hash, full_name, role, tenant_id)
-                          VALUES (?, ?, ?, ?, ?)''',
-                       (sa_email,
-                        generate_password_hash(sa_password),
-                        'Platform Admin', 'superadmin', None))
-            db.commit()
-            app.logger.info(f'Super-admin account created for {sa_email}')
 
 
 def _backfill_customers(db):
@@ -796,25 +770,10 @@ def expire_all_customer_loyalty(db):
 
 # ─── Admin helpers ───────────────────────────────────────────────────────────
 
-def _check_tenant_active():
-    """Return True if the session's tenant is still active (or user is superadmin)."""
-    if session.get('is_superadmin'):
-        return True
-    tenant_id = session.get('tenant_id')
-    if not tenant_id:
-        return True  # no tenant context yet — let login handle it
-    row = get_db().execute('SELECT is_active FROM tenants WHERE id=?', (tenant_id,)).fetchone()
-    return bool(row and row['is_active'])
-
-
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if not session.get('admin_user_id'):
-            return redirect(url_for('admin_login'))
-        if not _check_tenant_active():
-            session.clear()
-            flash('Your salon account has been deactivated. Please contact the platform admin.', 'error')
             return redirect(url_for('admin_login'))
         return f(*args, **kwargs)
     return decorated
@@ -826,10 +785,6 @@ def role_required(*roles):
         @wraps(f)
         def decorated(*args, **kwargs):
             if not session.get('admin_user_id'):
-                return redirect(url_for('admin_login'))
-            if not _check_tenant_active():
-                session.clear()
-                flash('Your salon account has been deactivated. Please contact the platform admin.', 'error')
                 return redirect(url_for('admin_login'))
             if session.get('admin_user_role') not in roles:
                 flash('You do not have permission to access this page.', 'error')
@@ -843,33 +798,18 @@ owner_required   = role_required('owner')
 manager_required = role_required('owner', 'manager')
 
 
-def superadmin_required(f):
-    """Decorator: requires the platform super-admin session flag."""
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not session.get('is_superadmin'):
-            flash('Platform admin access required.', 'error')
-            return redirect(url_for('admin_login'))
-        return f(*args, **kwargs)
-    return decorated
-
-
 def get_current_branch_id():
     return session.get('admin_branch_id', 1)
 
 
 def get_admin_context():
     db = get_db()
-    tenant_id = session.get('tenant_id', 1)
-    # Only show branches that belong to this tenant
     branches = db.execute(
-        'SELECT * FROM branches WHERE is_active=1 AND tenant_id=? ORDER BY id',
-        (tenant_id,)
+        'SELECT * FROM branches WHERE is_active=1 ORDER BY id'
     ).fetchall()
     bid = get_current_branch_id()
-    # Ensure the active branch belongs to this tenant; fall back to first branch
     current_branch = db.execute(
-        'SELECT * FROM branches WHERE id=? AND tenant_id=?', (bid, tenant_id)
+        'SELECT * FROM branches WHERE id=? AND is_active=1', (bid,)
     ).fetchone()
     if not current_branch and branches:
         bid = branches[0]['id']
@@ -1061,12 +1001,8 @@ def verify_otp():
                     date=pb['date'], time=pb['time']
                 )
 
-        # Resolve the tenant's default branch — use g.tenant set by load_tenant()
-        tenant_id = getattr(g, 'tenant', None)
-        tenant_id = tenant_id['id'] if tenant_id else 1
         default_branch = db.execute(
-            'SELECT id FROM branches WHERE tenant_id=? AND is_active=1 ORDER BY id LIMIT 1',
-            (tenant_id,)
+            'SELECT id FROM branches WHERE is_active=1 ORDER BY id LIMIT 1'
         ).fetchone()
         pub_branch_id = default_branch['id'] if default_branch else 1
 
@@ -1243,21 +1179,9 @@ def admin_login():
             'SELECT * FROM admin_users WHERE email=? AND is_active=1', (email,)
         ).fetchone()
         if user and check_password_hash(user['password_hash'], password):
-            # For non-superadmin: validate tenant is active BEFORE touching session
-            if user['role'] != 'superadmin':
-                tenant_id  = user['tenant_id'] or 1
-                tenant_row = db.execute(
-                    'SELECT is_active FROM tenants WHERE id=?', (tenant_id,)
-                ).fetchone()
-                if not tenant_row or not tenant_row['is_active']:
-                    # Clear any pre-existing session so stale sessions cannot bypass
-                    session.clear()
-                    error = 'This salon account is currently inactive. Contact the platform admin.'
-                    return render_template('admin_login.html', error=error)
-                first_branch = db.execute(
-                    'SELECT id FROM branches WHERE tenant_id=? AND is_active=1 ORDER BY id LIMIT 1',
-                    (tenant_id,)
-                ).fetchone()
+            first_branch = db.execute(
+                'SELECT id FROM branches WHERE is_active=1 ORDER BY id LIMIT 1'
+            ).fetchone()
             # All checks passed — now commit to session
             db.execute('UPDATE admin_users SET last_login=? WHERE id=?',
                        (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), user['id']))
@@ -1266,12 +1190,6 @@ def admin_login():
             session['admin_user_role']  = user['role']
             session['admin_user_name']  = user['full_name']
             session['admin_user_email'] = user['email']
-            if user['role'] == 'superadmin':
-                session['is_superadmin'] = True
-                session['tenant_id']     = None
-                return redirect(url_for('superadmin_tenants'))
-            session['is_superadmin']    = False
-            session['tenant_id']        = tenant_id
             session['admin_branch_id']  = first_branch['id'] if first_branch else 1
             return redirect(url_for('admin_dashboard'))
         error = 'Incorrect email or password. Please try again.'
@@ -1281,7 +1199,7 @@ def admin_login():
 @app.route('/admin/logout')
 def admin_logout():
     for k in ('admin_user_id', 'admin_user_role', 'admin_user_name',
-              'admin_user_email', 'admin_branch_id', 'tenant_id', 'is_superadmin'):
+              'admin_user_email', 'admin_branch_id'):
         session.pop(k, None)
     return redirect(url_for('admin_login'))
 
@@ -1289,11 +1207,10 @@ def admin_logout():
 @app.route('/admin/switch-branch/<int:branch_id>')
 @admin_required
 def switch_branch(branch_id):
-    tenant_id = session.get('tenant_id', 1)
     db        = get_db()
     branch    = db.execute(
-        'SELECT id FROM branches WHERE id=? AND tenant_id=? AND is_active=1',
-        (branch_id, tenant_id)
+        'SELECT id FROM branches WHERE id=? AND is_active=1',
+        (branch_id,)
     ).fetchone()
     if not branch:
         flash('Branch not found.', 'error')
@@ -1591,8 +1508,7 @@ def admin_customer_edit(cust_id):
 @app.route('/admin/branches')
 @manager_required
 def admin_branches():
-    db        = get_db()
-    tenant_id = session.get('tenant_id', 1)
+    db = get_db()
     all_branches = db.execute('''
         SELECT b.*,
                COUNT(DISTINCT a.id) as appt_count,
@@ -1600,10 +1516,9 @@ def admin_branches():
         FROM branches b
         LEFT JOIN appointments a ON a.branch_id = b.id
         LEFT JOIN customers    c ON c.branch_id = b.id
-        WHERE b.tenant_id=?
         GROUP BY b.id
         ORDER BY b.id
-    ''', (tenant_id,)).fetchall()
+    ''').fetchall()
     return render_template('admin_branches.html',
                            all_branches=all_branches, **get_admin_context())
 
@@ -1616,12 +1531,11 @@ def admin_branch_add():
         address   = request.form.get('address', '').strip()
         phone     = request.form.get('phone', '').strip()
         mgr       = request.form.get('manager_name', '').strip()
-        tenant_id = session.get('tenant_id', 1)
         if name:
             db = get_db()
             db.execute(
-                'INSERT INTO branches (name, address, phone, manager_name, tenant_id) VALUES (?,?,?,?,?)',
-                (name, address, phone, mgr, tenant_id)
+                'INSERT INTO branches (name, address, phone, manager_name) VALUES (?,?,?,?)',
+                (name, address, phone, mgr)
             )
             db.commit()
             flash(f'Branch "{name}" added.', 'success')
@@ -1633,10 +1547,9 @@ def admin_branch_add():
 @app.route('/admin/branches/<int:branch_id>/edit', methods=['GET', 'POST'])
 @manager_required
 def admin_branch_edit(branch_id):
-    db        = get_db()
-    tenant_id = session.get('tenant_id', 1)
+    db = get_db()
     branch    = db.execute(
-        'SELECT * FROM branches WHERE id=? AND tenant_id=?', (branch_id, tenant_id)
+        'SELECT * FROM branches WHERE id=?', (branch_id,)
     ).fetchone()
     if not branch:
         flash('Branch not found.', 'error')
@@ -1659,18 +1572,15 @@ def admin_branch_edit(branch_id):
 @app.route('/admin/branches/<int:branch_id>/delete', methods=['POST'])
 @manager_required
 def admin_branch_delete(branch_id):
-    db        = get_db()
-    tenant_id = session.get('tenant_id', 1)
+    db = get_db()
     branch    = db.execute(
-        'SELECT id FROM branches WHERE id=? AND tenant_id=?', (branch_id, tenant_id)
+        'SELECT id FROM branches WHERE id=?', (branch_id,)
     ).fetchone()
     if not branch:
         flash('Branch not found.', 'error')
         return redirect(url_for('admin_branches'))
-    # Protect the tenant's primary (first) branch
-    first = db.execute(
-        'SELECT id FROM branches WHERE tenant_id=? ORDER BY id LIMIT 1', (tenant_id,)
-    ).fetchone()
+    # Protect the installation's primary branch
+    first = db.execute('SELECT id FROM branches ORDER BY id LIMIT 1').fetchone()
     if first and first['id'] == branch_id:
         flash('Cannot deactivate the primary branch.', 'error')
         return redirect(url_for('admin_branches'))
@@ -3279,16 +3189,15 @@ def admin_analytics():
     ''', (bid,)).fetchone()
     retention_rate = round(ret['retention'] or 0, 1)
 
-    # Branch comparison — scoped to this tenant only
-    tenant_id    = session.get('tenant_id', 1)
+    # Branch comparison for this single-salon installation
     branches_rev = db.execute('''
         SELECT b.name, COALESCE(SUM(i.total),0) as rev, COUNT(i.id) as cnt
         FROM branches b
         LEFT JOIN invoices i ON i.branch_id = b.id AND i.status='paid'
           AND DATE(i.created_at) BETWEEN ? AND ?
-        WHERE b.is_active=1 AND b.tenant_id=?
+        WHERE b.is_active=1
         GROUP BY b.id ORDER BY rev DESC
-    ''', (date_from, date_to, tenant_id)).fetchall()
+    ''', (date_from, date_to)).fetchall()
 
     return render_template('admin_analytics.html',
                            date_from=date_from, date_to=date_to,
@@ -3791,15 +3700,10 @@ def staff_login():
             (phone,)
         ).fetchone()
         if staff and staff['portal_pin'] == pin:
-            # Derive tenant from the staff member's branch so branding is correct
-            branch_row = db.execute(
-                'SELECT tenant_id FROM branches WHERE id=?', (staff['branch_id'],)
-            ).fetchone()
             session['staff_portal_logged_in'] = True
             session['staff_portal_id']        = staff['id']
             session['staff_portal_name']      = staff['name']
             session['staff_portal_branch_id'] = staff['branch_id']
-            session['tenant_id']              = (branch_row['tenant_id'] if branch_row else 1)
             return redirect(url_for('staff_dashboard'))
         error = 'Invalid phone number or PIN. Please check with your manager.'
     return render_template('staff_portal_login.html', error=error)
@@ -3808,7 +3712,7 @@ def staff_login():
 @app.route('/staff/logout')
 def staff_logout():
     for k in ('staff_portal_logged_in', 'staff_portal_id',
-              'staff_portal_name', 'staff_portal_branch_id', 'tenant_id'):
+              'staff_portal_name', 'staff_portal_branch_id'):
         session.pop(k, None)
     return redirect(url_for('staff_login'))
 
@@ -4074,11 +3978,9 @@ def admin_staff_set_pin(staff_id):
 @app.route('/admin/team')
 @owner_required
 def admin_team():
-    db        = get_db()
-    tenant_id = session.get('tenant_id', 1)
-    users     = db.execute(
-        'SELECT * FROM admin_users WHERE tenant_id=? ORDER BY role DESC, full_name',
-        (tenant_id,)
+    db = get_db()
+    users = db.execute(
+        'SELECT * FROM admin_users ORDER BY role DESC, full_name'
     ).fetchall()
     return render_template('admin_team.html', users=users, **get_admin_context())
 
@@ -4086,8 +3988,7 @@ def admin_team():
 @app.route('/admin/team/add', methods=['POST'])
 @owner_required
 def admin_team_add():
-    db        = get_db()
-    tenant_id = session.get('tenant_id', 1)
+    db = get_db()
     email     = request.form.get('email', '').strip().lower()
     full_name = request.form.get('full_name', '').strip()
     role      = request.form.get('role', 'receptionist')
@@ -4107,9 +4008,9 @@ def admin_team_add():
         flash('An account with that email already exists.', 'error')
         return redirect(url_for('admin_team'))
 
-    db.execute('''INSERT INTO admin_users (email, password_hash, full_name, role, tenant_id)
-                  VALUES (?, ?, ?, ?, ?)''',
-               (email, generate_password_hash(password), full_name, role, tenant_id))
+    db.execute('''INSERT INTO admin_users (email, password_hash, full_name, role)
+                  VALUES (?, ?, ?, ?)''',
+               (email, generate_password_hash(password), full_name, role))
     db.commit()
     flash(f'Account for {full_name} created successfully.', 'success')
     return redirect(url_for('admin_team'))
@@ -4118,10 +4019,9 @@ def admin_team_add():
 @app.route('/admin/team/<int:user_id>/toggle', methods=['POST'])
 @owner_required
 def admin_team_toggle(user_id):
-    db        = get_db()
-    tenant_id = session.get('tenant_id', 1)
-    user      = db.execute(
-        'SELECT * FROM admin_users WHERE id=? AND tenant_id=?', (user_id, tenant_id)
+    db = get_db()
+    user = db.execute(
+        'SELECT * FROM admin_users WHERE id=?', (user_id,)
     ).fetchone()
     if not user:
         flash('User not found.', 'error')
@@ -4139,10 +4039,9 @@ def admin_team_toggle(user_id):
 @app.route('/admin/team/<int:user_id>/reset-password', methods=['POST'])
 @owner_required
 def admin_team_reset_password(user_id):
-    db        = get_db()
-    tenant_id = session.get('tenant_id', 1)
-    user      = db.execute(
-        'SELECT id FROM admin_users WHERE id=? AND tenant_id=?', (user_id, tenant_id)
+    db = get_db()
+    user = db.execute(
+        'SELECT id FROM admin_users WHERE id=?', (user_id,)
     ).fetchone()
     password  = request.form.get('new_password', '').strip()
     if not user:
@@ -4161,10 +4060,9 @@ def admin_team_reset_password(user_id):
 @app.route('/admin/team/<int:user_id>/change-role', methods=['POST'])
 @owner_required
 def admin_team_change_role(user_id):
-    db        = get_db()
-    tenant_id = session.get('tenant_id', 1)
-    user      = db.execute(
-        'SELECT * FROM admin_users WHERE id=? AND tenant_id=?', (user_id, tenant_id)
+    db = get_db()
+    user = db.execute(
+        'SELECT * FROM admin_users WHERE id=?', (user_id,)
     ).fetchone()
     if not user:
         flash('User not found.', 'error')
@@ -4186,8 +4084,8 @@ def admin_team_change_role(user_id):
 @app.route('/admin/branding', methods=['GET', 'POST'])
 @owner_required
 def admin_branding():
-    db        = get_db()
-    tenant_id = session.get('tenant_id', 1)
+    db = get_db()
+    salon = db.execute('SELECT * FROM salon_settings WHERE id=1').fetchone()
     if request.method == 'POST':
         name          = request.form.get('name', '').strip()
         tagline       = request.form.get('tagline', '').strip()
@@ -4201,204 +4099,27 @@ def admin_branding():
             flash('Salon name is required.', 'error')
             return redirect(url_for('admin_branding'))
         # Logo upload
-        current = db.execute(
-            'SELECT logo_filename FROM tenants WHERE id=?', (tenant_id,)
-        ).fetchone()
-        logo_filename = (current['logo_filename'] if current else None) or 'brand-logo.jpeg'
+        logo_filename = (salon['logo_filename'] if salon else None) or 'brand-logo.jpeg'
         logo_file = request.files.get('logo')
         if logo_file and logo_file.filename:
             ext = logo_file.filename.rsplit('.', 1)[-1].lower()
             if ext in LOGO_ALLOWED_EXTENSIONS:
-                safe_name = f"tenant_{tenant_id}_logo.{ext}"
+                safe_name = f"salon_logo.{ext}"
                 os.makedirs(LOGO_UPLOAD_DIR, exist_ok=True)
                 logo_file.save(os.path.join(LOGO_UPLOAD_DIR, safe_name))
                 logo_filename = safe_name
-        db.execute('''UPDATE tenants
+        db.execute('''UPDATE salon_settings
                       SET name=?, tagline=?, logo_filename=?,
                           primary_color=?, accent_color=?, bg_color=?,
                           phone=?, email=?, address=?
-                      WHERE id=?''',
+                      WHERE id=1''',
                    (name, tagline, logo_filename,
                     primary_color, accent_color, bg_color,
-                    phone, email, address, tenant_id))
+                     phone, email, address))
         db.commit()
         flash('Branding updated successfully!', 'success')
         return redirect(url_for('admin_branding'))
     return render_template('admin_branding.html', **get_admin_context())
-
-
-# ─── Super-Admin: Platform console ───────────────────────────────────────────
-
-@app.route('/superadmin')
-def superadmin_index():
-    if session.get('is_superadmin'):
-        return redirect(url_for('superadmin_tenants'))
-    return redirect(url_for('admin_login'))
-
-
-@app.route('/superadmin/tenants')
-@superadmin_required
-def superadmin_tenants():
-    db      = get_db()
-    tenants = db.execute('''
-        SELECT t.*,
-               COUNT(DISTINCT au.id) as user_count,
-               COUNT(DISTINCT b.id)  as branch_count
-        FROM tenants t
-        LEFT JOIN admin_users au ON au.tenant_id = t.id AND au.is_active=1
-                                 AND au.role != 'superadmin'
-        LEFT JOIN branches b ON b.tenant_id = t.id AND b.is_active=1
-        GROUP BY t.id ORDER BY t.created_at DESC
-    ''').fetchall()
-    return render_template('superadmin_tenants.html', tenants=tenants)
-
-
-@app.route('/superadmin/tenants/new', methods=['GET', 'POST'])
-@superadmin_required
-def superadmin_tenant_new():
-    if request.method == 'POST':
-        db            = get_db()
-        name          = request.form.get('name', '').strip()
-        slug          = request.form.get('slug', '').strip().lower()
-        tagline       = request.form.get('tagline', '').strip()
-        primary_color = request.form.get('primary_color', '#c9a96e').strip()
-        accent_color  = request.form.get('accent_color', '#d4af37').strip()
-        bg_color      = request.form.get('bg_color', '#0a0a0a').strip()
-        phone         = request.form.get('phone', '').strip()
-        email         = request.form.get('email', '').strip()
-        address       = request.form.get('address', '').strip()
-        owner_email   = request.form.get('owner_email', '').strip().lower()
-        owner_name    = request.form.get('owner_name', '').strip()
-        owner_password = request.form.get('owner_password', '').strip()
-
-        errors = []
-        if not name:          errors.append('Salon name is required.')
-        if not slug:          errors.append('URL slug is required.')
-        if not owner_email:   errors.append('Owner email is required.')
-        if not owner_name:    errors.append('Owner name is required.')
-        if not owner_password or len(owner_password) < 6:
-            errors.append('Owner password must be at least 6 characters.')
-        if db.execute('SELECT id FROM tenants WHERE slug=?', (slug,)).fetchone():
-            errors.append(f'Slug "{slug}" is already taken.')
-        if db.execute('SELECT id FROM admin_users WHERE email=?', (owner_email,)).fetchone():
-            errors.append(f'Admin email "{owner_email}" already exists.')
-
-        if errors:
-            for e in errors:
-                flash(e, 'error')
-            return redirect(url_for('superadmin_tenant_new'))
-
-        # Handle logo upload
-        logo_filename = 'brand-logo.jpeg'
-        logo_file = request.files.get('logo')
-        if logo_file and logo_file.filename:
-            ext = logo_file.filename.rsplit('.', 1)[-1].lower()
-            if ext in LOGO_ALLOWED_EXTENSIONS:
-                # Temp name; we'll rename after we have the tenant id
-                import tempfile
-                tmp_path = tempfile.mktemp(suffix=f'.{ext}')
-                logo_file.save(tmp_path)
-                logo_filename = f'__pending__.{ext}'  # resolved below
-
-        cur = db.execute('''INSERT INTO tenants
-                            (name, slug, tagline, logo_filename,
-                             primary_color, accent_color, bg_color,
-                             phone, email, address)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                         (name, slug, tagline, logo_filename,
-                          primary_color, accent_color, bg_color,
-                          phone, email, address))
-        tenant_id = cur.lastrowid
-
-        # Resolve the pending logo name now that we have the tenant id
-        if logo_filename.startswith('__pending__'):
-            ext = logo_filename.rsplit('.', 1)[-1]
-            real_name = f"tenant_{tenant_id}_logo.{ext}"
-            os.makedirs(LOGO_UPLOAD_DIR, exist_ok=True)
-            import shutil; shutil.move(tmp_path, os.path.join(LOGO_UPLOAD_DIR, real_name))
-            db.execute('UPDATE tenants SET logo_filename=? WHERE id=?', (real_name, tenant_id))
-            logo_filename = real_name
-
-        # Default branch
-        db.execute('''INSERT INTO branches (name, address, phone, manager_name, tenant_id)
-                      VALUES (?, ?, ?, ?, ?)''',
-                   (name, address or 'Main Branch', phone, owner_name, tenant_id))
-
-        # Owner account
-        db.execute('''INSERT INTO admin_users
-                      (email, password_hash, full_name, role, tenant_id)
-                      VALUES (?, ?, ?, ?, ?)''',
-                   (owner_email,
-                    generate_password_hash(owner_password),
-                    owner_name, 'owner', tenant_id))
-        db.commit()
-        flash(f'Salon "{name}" created successfully!', 'success')
-        return redirect(url_for('superadmin_tenants'))
-    return render_template('superadmin_tenant_form.html', tenant=None)
-
-
-@app.route('/superadmin/tenants/<int:tenant_id>/edit', methods=['GET', 'POST'])
-@superadmin_required
-def superadmin_tenant_edit(tenant_id):
-    db     = get_db()
-    tenant = db.execute('SELECT * FROM tenants WHERE id=?', (tenant_id,)).fetchone()
-    if not tenant:
-        flash('Salon not found.', 'error')
-        return redirect(url_for('superadmin_tenants'))
-    if request.method == 'POST':
-        name          = request.form.get('name', '').strip()
-        tagline       = request.form.get('tagline', '').strip()
-        primary_color = request.form.get('primary_color', '#c9a96e').strip()
-        accent_color  = request.form.get('accent_color', '#d4af37').strip()
-        bg_color      = request.form.get('bg_color', '#0a0a0a').strip()
-        phone         = request.form.get('phone', '').strip()
-        email         = request.form.get('email', '').strip()
-        address       = request.form.get('address', '').strip()
-        is_active     = 1 if request.form.get('is_active') else 0
-        logo_filename = tenant['logo_filename'] or 'brand-logo.jpeg'
-        logo_file = request.files.get('logo')
-        if logo_file and logo_file.filename:
-            ext = logo_file.filename.rsplit('.', 1)[-1].lower()
-            if ext in LOGO_ALLOWED_EXTENSIONS:
-                safe_name = f"tenant_{tenant_id}_logo.{ext}"
-                os.makedirs(LOGO_UPLOAD_DIR, exist_ok=True)
-                logo_file.save(os.path.join(LOGO_UPLOAD_DIR, safe_name))
-                logo_filename = safe_name
-        db.execute('''UPDATE tenants
-                      SET name=?, tagline=?, logo_filename=?,
-                          primary_color=?, accent_color=?, bg_color=?,
-                          phone=?, email=?, address=?, is_active=?
-                      WHERE id=?''',
-                   (name, tagline, logo_filename,
-                    primary_color, accent_color, bg_color,
-                    phone, email, address, is_active, tenant_id))
-        db.commit()
-        flash('Salon updated.', 'success')
-        return redirect(url_for('superadmin_tenants'))
-    return render_template('superadmin_tenant_form.html', tenant=tenant)
-
-
-@app.route('/superadmin/tenants/<int:tenant_id>/toggle', methods=['POST'])
-@superadmin_required
-def superadmin_tenant_toggle(tenant_id):
-    db     = get_db()
-    tenant = db.execute('SELECT * FROM tenants WHERE id=?', (tenant_id,)).fetchone()
-    if not tenant:
-        flash('Salon not found.', 'error')
-        return redirect(url_for('superadmin_tenants'))
-    new_state = 0 if tenant['is_active'] else 1
-    db.execute('UPDATE tenants SET is_active=? WHERE id=?', (new_state, tenant_id))
-    db.commit()
-    flash(f'Salon {"activated" if new_state else "deactivated"}.', 'success')
-    return redirect(url_for('superadmin_tenants'))
-
-
-@app.route('/superadmin/logout')
-def superadmin_logout():
-    for k in ('admin_user_id', 'admin_user_role', 'admin_user_name',
-              'admin_user_email', 'admin_branch_id', 'tenant_id', 'is_superadmin'):
-        session.pop(k, None)
-    return redirect(url_for('admin_login'))
 
 
 @app.route('/my/loyalty/clear', methods=['POST'])

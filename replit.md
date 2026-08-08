@@ -15,7 +15,7 @@ cd salon-app && python app.py
 - Admin panel: `/admin`
 - Customer portal: `/my`
 - Staff portal: `/staff`
-- Super-admin: `/superadmin/`
+- Admin panel: `/admin`
 
 On first start the app creates a fresh SQLite database (`salon-app/salon.db`) and prints a one-time bootstrap admin password to the logs.
 
@@ -52,9 +52,10 @@ All credentials are read from environment variables — never hardcoded.
 
 The app works without messaging credentials — OTP and notifications simply won't be delivered.
 
-## User preferences
+## Product model
 
-- App should support multiple salons (multi-tenant/white-label SaaS)
-- Salon name, theme, and colors should be configurable per client
-- All credentials (email, SMS, WhatsApp) should be configurable per salon in the admin panel
-- Target: desktop app (Electron wrapper or similar)
+- This is a standalone desktop product sold and installed separately for each salon customer.
+- Each installation has one local salon profile and one local SQLite database.
+- The salon owner can change the name, logo, tagline, contact details, and colors from **Admin → Branding**.
+- There is no tenant switching, public salon routing, SaaS signup, or platform super-admin.
+- The desktop shell is Electron-based and runs the local Flask server privately on the computer.

@@ -1,1 +1,0 @@
-- [White-label multi-tenancy](white-label-tenancy.md) — tenants table + session-based tenant_id; superadmin role routes to /superadmin/; logos in static/logos/
