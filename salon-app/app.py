@@ -20,11 +20,13 @@ from werkzeug.exceptions import RequestEntityTooLarge
 app = Flask(__name__)
 app.secret_key = os.environ.get('SESSION_SECRET', 'vanshika-makeover-secret-2024')
 _desktop_mode = os.environ.get('FLASK_DESKTOP_MODE') == '1'
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax' if _desktop_mode else 'None'
-app.config['SESSION_COOKIE_SECURE']   = False  if _desktop_mode else True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+# The Replit preview can reach Flask through both its HTTPS proxy and the
+# internal HTTP preview URL. A Secure-only cookie is dropped on the latter,
+# which makes a successful admin POST immediately appear logged out.
+app.config['SESSION_COOKIE_SECURE'] = False
 
-# Trust the Replit HTTPS proxy so Secure cookies work in the preview pane.
-# Not needed (and counter-productive) when running as a local desktop app.
+# Trust the Replit HTTPS proxy for URL generation and request metadata.
 if not _desktop_mode:
     from werkzeug.middleware.proxy_fix import ProxyFix
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
@@ -238,7 +240,10 @@ def inject_salon():
     """
     salon = getattr(g, 'salon', None)
     if salon and salon['logo_filename'] and salon['logo_filename'] != 'brand-logo.jpeg':
-        logo_url = url_for('static', filename=f"logos/{salon['logo_filename']}")
+        if _DATA_DIR:
+            logo_url = url_for('salon_logo', filename=salon['logo_filename'])
+        else:
+            logo_url = url_for('static', filename=f"logos/{salon['logo_filename']}")
     else:
         logo_url = url_for('static', filename='brand-logo.jpeg')
     return {
@@ -247,6 +252,12 @@ def inject_salon():
         'salon_logo_url': logo_url,
         'tenant_logo_url': logo_url,
     }
+
+
+@app.route('/uploads/logo/<path:filename>')
+def salon_logo(filename):
+    """Serve a salon's uploaded logo from its writable installation data."""
+    return send_from_directory(LOGO_UPLOAD_DIR, filename)
 
 
 @app.errorhandler(RequestEntityTooLarge)

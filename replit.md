@@ -19,46 +19,44 @@ cd salon-app && python app.py
 
 On first start the app creates a fresh SQLite database (`salon-app/salon.db`) and prints a one-time bootstrap admin password to the logs.
 
-### Desktop app (Electron)
-The **Desktop App** workflow launches an Electron window that runs Flask internally on port 5001 and opens it as a native desktop window. Development falls back to the local Python installation; distributable installers use a bundled server executable.
+### Desktop app (Python + pywebview)
+The **Desktop App** workflow uses the same Flask screens inside a native
+pywebview window. The distributable Windows executable is built with PyInstaller
+and does not require Python, Flask, Node, or Electron on the customer's machine.
 
 ```bash
-cd desktop && node_modules/.bin/electron . --no-sandbox
+python desktop/launcher.py
 ```
 
-`FLASK_DESKTOP_MODE=1` is set automatically by the Electron main process so Flask uses plain HTTP session cookies (no `Secure`/`SameSite=None`) over the local loopback interface.
+`FLASK_DESKTOP_MODE=1` is set automatically by the Python launcher so Flask
+uses plain HTTP session cookies over the local loopback interface.
 
 Build distributable installers from the `desktop/` directory:
 
 ```bash
-npm run dist:linux   # → dist/*.AppImage + *.deb  (run on Linux)
-npm run dist:win     # → dist/*.exe NSIS installer (requires Wine on Linux)
-npm run dist:mac     # → dist/*.dmg               (run on macOS; native host architecture)
+python -m PyInstaller --noconfirm --clean desktop/pywebview.spec
 ```
 
-## Build a self-contained installer
+## Build a self-contained desktop executable
 
-Python is required only on the build machine. The customer's installed app
-contains a standalone PyInstaller server and does not require Python or Flask.
+Python is required only on the build machine. The customer's executable
+contains the launcher, Flask application, templates, static assets, and
+pywebview dependencies.
 
 ```bash
-cd desktop
-python -m pip install -r ../salon-app/requirements.txt pyinstaller
-npm run build:server
-npm run dist:win    # or dist:mac / dist:linux
+python -m pip install -r salon-app/requirements.txt -r desktop/requirements.txt
+python -m PyInstaller --noconfirm --clean desktop/pywebview.spec
 ```
 
-`build-resources/` is platform-specific build output and is intentionally
-gitignored. Build each installer on its target platform. The macOS command
-creates one DMG matching the build Mac's architecture; run it on both Intel
-and Apple Silicon Macs if both variants are required.
+`desktop/dist/` is platform-specific build output and is intentionally
+gitignored. Build each executable on its target platform.
 
 ## Stack
 
 - **Backend:** Python / Flask, SQLite
 - **Templates:** Jinja2 HTML
 - **Mobile:** Expo (React Native WebView wrapper) — see `mobile/`
-- **Desktop:** Electron (wraps the Flask server) — see `desktop/`
+- **Desktop:** Python + pywebview (wraps the Flask server) — see `desktop/`
 
 ## Secrets & credentials
 
@@ -84,4 +82,4 @@ The app works without messaging credentials — OTP and notifications simply won
 - Each installation has one local salon profile and one local SQLite database.
 - The salon owner can change the name, logo, tagline, contact details, and colors from **Admin → Branding**.
 - There is no tenant switching, public salon routing, SaaS signup, or platform super-admin.
-- The desktop shell is Electron-based and runs the local Flask server privately on the computer.
+- The desktop shell is Python + pywebview and runs the local Flask server privately on the computer.

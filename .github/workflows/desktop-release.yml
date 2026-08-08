@@ -12,7 +12,7 @@ permissions:
 jobs:
   # ── Windows build ────────────────────────────────────────────────────────────
   build-win:
-    name: Build Windows installer
+    name: Build Windows executable
     runs-on: windows-latest
 
     steps:
@@ -23,51 +23,15 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Python dependencies
-        working-directory: salon-app
-        run: pip install -r requirements.txt pyinstaller
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: desktop/package-lock.json
-
-      - name: Install Node dependencies
+      - name: Install desktop dependencies
         working-directory: desktop
-        run: npm ci
+        run: python -m pip install -r requirements.txt -r ../salon-app/requirements.txt
 
-      - name: Verify fixed Electron packaging versions
+      - name: Build Windows desktop executable
         working-directory: desktop
-        shell: bash
-        run: |
-          node - <<'NODE'
-          const pkg = require('./package.json');
-          const electron = pkg.devDependencies?.electron;
-          const builder = pkg.devDependencies?.['electron-builder'];
-          const configured = pkg.build?.electronVersion;
-          if (!/^\d+\.\d+\.\d+$/.test(electron || '') ||
-              !/^\d+\.\d+\.\d+$/.test(builder || '') ||
-              configured !== electron) {
-            throw new Error(
-              `Electron packaging versions must be exact. ` +
-              `electron=${electron}, electron-builder=${builder}, ` +
-              `build.electronVersion=${configured}`
-            );
-          }
-          console.log({ electron, builder, configured });
-          NODE
+        run: python -m PyInstaller --noconfirm --clean pywebview.spec
 
-      - name: Build PyInstaller server binary
-        working-directory: desktop
-        run: npm run build:server
-
-      - name: Build Windows installer
-        working-directory: desktop
-        run: npx electron-builder --win --publish never
-
-      - name: Upload Windows installer
+      - name: Upload Windows executable
         uses: actions/upload-artifact@v4
         with:
           name: vanshika-makeover-windows
@@ -76,7 +40,7 @@ jobs:
 
   # ── Linux build ──────────────────────────────────────────────────────────────
   build-linux:
-    name: Build Linux packages
+    name: Build Linux executable
     runs-on: ubuntu-latest
 
     steps:
@@ -87,55 +51,17 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Python dependencies
-        working-directory: salon-app
-        run: pip install -r requirements.txt pyinstaller
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: desktop/package-lock.json
-
-      - name: Install Node dependencies
+      - name: Install desktop dependencies
         working-directory: desktop
-        run: npm ci
+        run: python -m pip install -r requirements.txt -r ../salon-app/requirements.txt
 
-      - name: Verify fixed Electron packaging versions
+      - name: Build Linux desktop executable
         working-directory: desktop
-        shell: bash
-        run: |
-          node - <<'NODE'
-          const pkg = require('./package.json');
-          const electron = pkg.devDependencies?.electron;
-          const builder = pkg.devDependencies?.['electron-builder'];
-          const configured = pkg.build?.electronVersion;
-          if (!/^\d+\.\d+\.\d+$/.test(electron || '') ||
-              !/^\d+\.\d+\.\d+$/.test(builder || '') ||
-              configured !== electron) {
-            throw new Error(
-              `Electron packaging versions must be exact. ` +
-              `electron=${electron}, electron-builder=${builder}, ` +
-              `build.electronVersion=${configured}`
-            );
-          }
-          console.log({ electron, builder, configured });
-          NODE
+        run: python -m PyInstaller --noconfirm --clean pywebview.spec
 
-      - name: Build PyInstaller server binary
-        working-directory: desktop
-        run: npm run build:server
-
-      - name: Build Linux packages
-        working-directory: desktop
-        run: npx electron-builder --linux --publish never
-
-      - name: Upload Linux packages
+      - name: Upload Linux executable
         uses: actions/upload-artifact@v4
         with:
           name: vanshika-makeover-linux
-          path: |
-            desktop/dist/*.AppImage
-            desktop/dist/*.deb
+          path: desktop/dist/*
           if-no-files-found: error
