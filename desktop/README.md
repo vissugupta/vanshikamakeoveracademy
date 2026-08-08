@@ -78,6 +78,20 @@ The Windows job builds a native `salon-server.exe`, places it inside the
 installer, and uploads the NSIS `.exe` as an artifact. Python is not required
 on the Windows customer's computer.
 
+### If the installed Windows app does not open
+
+Install the newest Windows installer and launch it again. Version `1.0.1` and
+later write startup diagnostics to:
+
+```text
+%APPDATA%\Vanshika Makeover Academy\logs\desktop-startup.log
+```
+
+If the bundled server cannot start, the app now keeps its loading window
+visible and shows an error dialog with the reason and log path. Send that log
+when reporting a startup problem; it identifies missing files, blocked
+executables, port conflicts, and Flask/database startup errors.
+
 The workflow also runs automatically when a version tag such as `v1.0.0` is
 pushed and uploads the Linux packages as a separate artifact.
 

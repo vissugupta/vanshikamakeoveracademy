@@ -4,6 +4,64 @@ const { app, BrowserWindow, ipcMain, dialog, shell, Menu, Notification } = requi
 const path  = require('path');
 const http  = require('http');
 const { spawn } = require('child_process');
+const fs = require('fs');
+
+// Keep a startup log in the user's writable app-data folder. This is
+// especially important on Windows, where launching an installed GUI app does
+// not expose a terminal if the bundled server fails before the main window is
+// shown.
+let logFile = null;
+let startupFailureShown = false;
+function initStartupLog() {
+  try {
+    const dir = app.getPath('logs');
+    fs.mkdirSync(dir, { recursive: true });
+    logFile = path.join(dir, 'desktop-startup.log');
+    fs.appendFileSync(logFile, `\n--- ${new Date().toISOString()} ---\n`, 'utf8');
+  } catch {
+    logFile = null;
+  }
+}
+function writeStartupLog(message) {
+  const line = `[${new Date().toISOString()}] ${message}`;
+  console.log(line);
+  if (logFile) {
+    try { fs.appendFileSync(logFile, `${line}\n`, 'utf8'); } catch {}
+  }
+}
+function showStartupFailure(title, message) {
+  if (startupFailureShown) return;
+  startupFailureShown = true;
+  writeStartupLog(`${title}: ${message}`);
+
+  const logHint = logFile ? `\n\nA diagnostic log was saved here:\n${logFile}` : '';
+  if (loadingWin && !loadingWin.isDestroyed()) {
+    loadingWin.setSkipTaskbar(false);
+    loadingWin.show();
+    loadingWin.webContents.executeJavaScript(`
+      (() => {
+        const status = document.getElementById('status-text');
+        if (status) status.textContent = ${JSON.stringify(`${title}: ${message}`)};
+      })();
+    `).catch(() => {});
+  }
+  dialog.showErrorBox(title, `${message}${logHint}`);
+}
+process.on('uncaughtException', (error) => {
+  writeStartupLog(`Uncaught exception: ${error.stack || error.message}`);
+  if (app.isReady()) {
+    showStartupFailure('Application startup failed', error.message);
+    app.quit();
+  }
+});
+process.on('unhandledRejection', (reason) => {
+  const message = reason && reason.stack ? reason.stack : String(reason);
+  writeStartupLog(`Unhandled rejection: ${message}`);
+  if (app.isReady()) {
+    showStartupFailure('Application startup failed', message);
+    app.quit();
+  }
+});
 
 // ─── Auto-updater ─────────────────────────────────────────────────────────────
 
@@ -378,17 +436,18 @@ function startFlask() {
   try {
     server = getServerCommand();
   } catch (error) {
-    dialog.showErrorBox('Desktop server is missing', error.message);
-    app.quit();
+    writeStartupLog(`Bundled server lookup failed: ${error.stack || error.message}`);
+    showStartupFailure('Desktop server is missing', error.message);
+    setTimeout(() => app.quit(), 100);
     return;
   }
 
-  console.log(
+  writeStartupLog(
     `[desktop] Starting Flask ${server.bundled ? 'binary' : 'development fallback'} ` +
     `from ${server.command}`,
   );
   if (dataDir) {
-    console.log(`[desktop] User data dir: ${dataDir}`);
+    writeStartupLog(`[desktop] User data dir: ${dataDir}`);
   }
 
   flaskProcess = spawn(server.command, server.args, {
@@ -411,34 +470,34 @@ function startFlask() {
   });
 
   flaskProcess.stdout.on('data', (data) => {
-    process.stdout.write(`[flask] ${data}`);
+    writeStartupLog(`[flask] ${data.toString().trimEnd()}`);
   });
 
   flaskProcess.stderr.on('data', (data) => {
-    process.stderr.write(`[flask] ${data}`);
+    writeStartupLog(`[flask] ${data.toString().trimEnd()}`);
   });
 
   flaskProcess.on('exit', (code, signal) => {
     if (!isQuitting) {
-      console.error(`[desktop] Flask exited unexpectedly (code=${code}, signal=${signal})`);
-      dialog.showErrorBox(
+      writeStartupLog(`[desktop] Flask exited unexpectedly (code=${code}, signal=${signal})`);
+      showStartupFailure(
         'Server crashed',
         `The Flask server stopped unexpectedly (exit code ${code}).\n` +
-      'Please restart the application. If the problem persists, reinstall the app ' +
-      'or contact support.',
+        'Please restart the application. If the problem persists, reinstall the app ' +
+        'or contact support.',
       );
-      app.quit();
+      setTimeout(() => app.quit(), 100);
     }
   });
 
   flaskProcess.on('error', (err) => {
-    console.error('[desktop] Failed to spawn Flask:', err.message);
-    dialog.showErrorBox(
+    writeStartupLog(`[desktop] Failed to spawn Flask: ${err.stack || err.message}`);
+    showStartupFailure(
       'Cannot start server',
       `Could not launch the bundled server.\n\nError: ${err.message}\n\n` +
       'Please reinstall the application or contact support.',
     );
-    app.quit();
+    setTimeout(() => app.quit(), 100);
   });
 }
 
@@ -573,6 +632,11 @@ function createMainWindow() {
   });
 
   mainWindow.on('closed', () => { mainWindow = null; });
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    writeStartupLog(
+      `[desktop] Renderer failed to load ${validatedURL}: ${errorCode} ${errorDescription}`,
+    );
+  });
 }
 
 // ─── IPC handlers ─────────────────────────────────────────────────────────────
@@ -582,6 +646,8 @@ ipcMain.handle('get-flask-url', () => FLASK_URL);
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
+  initStartupLog();
+  writeStartupLog(`[desktop] Launching ${app.getVersion()} packaged=${app.isPackaged}`);
   // Set up silent background updates (packaged builds only)
   setupAutoUpdater();
 
@@ -596,7 +662,7 @@ app.whenReady().then(async () => {
 
   try {
     await waitForFlask();
-    console.log('[desktop] Flask is ready — loading UI');
+    writeStartupLog('[desktop] Flask is ready — loading UI');
 
     // Load the Flask app into the main window
     await mainWindow.loadURL(FLASK_URL);
@@ -607,13 +673,13 @@ app.whenReady().then(async () => {
       loadingWin.close();
     }
   } catch (err) {
-    console.error('[desktop] Flask failed to start:', err.message);
-    dialog.showErrorBox(
+    writeStartupLog(`[desktop] Flask failed to start: ${err.stack || err.message}`);
+    showStartupFailure(
       'Startup timeout',
       `The application server did not start in time.\n\nDetails: ${err.message}\n\n` +
       'Please reinstall the application or contact support.',
     );
-    app.quit();
+    setTimeout(() => app.quit(), 100);
   }
 });
 

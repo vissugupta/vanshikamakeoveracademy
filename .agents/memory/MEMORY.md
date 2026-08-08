@@ -1,0 +1,1 @@
+- [Windows desktop startup diagnostics](windows-desktop-startup.md) — packaged launch failures must be visible and logged because Windows GUI apps have no terminal.

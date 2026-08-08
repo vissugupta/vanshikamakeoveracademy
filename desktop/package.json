@@ -1,6 +1,6 @@
 {
   "name": "vanshika-makeover-desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Vanshika Makeover Academy — Desktop App (Electron wrapper for the Flask salon ERP)",
   "homepage": "https://vanshikamakeoveracademy.com",
   "author": {
