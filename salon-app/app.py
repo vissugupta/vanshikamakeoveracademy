@@ -4126,6 +4126,20 @@ def admin_team_change_role(user_id):
     return redirect(url_for('admin_team'))
 
 
+# ─── Admin: Desktop Update Settings ──────────────────────────────────────────
+
+@app.route('/admin/desktop-settings')
+@owner_required
+def admin_desktop_settings():
+    """
+    UI for controlling when auto-updates install on the desktop build.
+    Only meaningful when running inside Electron (FLASK_DESKTOP_MODE=1).
+    The actual preferences are persisted by the Electron main process via IPC;
+    this page simply provides the owner-facing form.
+    """
+    return render_template('admin_desktop_settings.html', **get_admin_context())
+
+
 # ─── Admin: Branding ──────────────────────────────────────────────────────────
 
 @app.route('/admin/branding', methods=['GET', 'POST'])

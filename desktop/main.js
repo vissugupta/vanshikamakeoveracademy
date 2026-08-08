@@ -14,6 +14,82 @@ const { spawn } = require('child_process');
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 
 /**
+ * Default update preferences.
+ *
+ *   mode            – 'on-quit'     : install when the app next closes (default)
+ *                   – 'on-download' : install immediately after download
+ *   maintenanceHour – null          : disabled
+ *                   – 0-23          : silently restart at this hour if an update
+ *                                     is waiting (only used when mode='on-quit')
+ */
+const DEFAULT_UPDATE_PREFS = {
+  mode: 'on-quit',
+  maintenanceHour: null,
+};
+
+/**
+ * Resolve the path to the per-user update-preferences JSON file.
+ * app.getPath('userData') is available only after the app is ready.
+ */
+function getUpdatePrefsPath() {
+  return path.join(app.getPath('userData'), 'update-prefs.json');
+}
+
+/** Read preferences from disk; fall back to defaults on any error. */
+function loadUpdatePrefs() {
+  const fs = require('fs');
+  try {
+    const raw = fs.readFileSync(getUpdatePrefsPath(), 'utf8');
+    return { ...DEFAULT_UPDATE_PREFS, ...JSON.parse(raw) };
+  } catch {
+    return { ...DEFAULT_UPDATE_PREFS };
+  }
+}
+
+/** Persist preferences to disk. */
+function saveUpdatePrefs(prefs) {
+  const fs = require('fs');
+  try {
+    fs.writeFileSync(getUpdatePrefsPath(), JSON.stringify(prefs, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('[updater] Could not save update prefs:', e.message);
+  }
+}
+
+// Track whether a downloaded update is waiting to be applied.
+let pendingUpdateVersion = null;
+// Reference to the maintenance-window interval so we can cancel it if needed.
+let maintenanceIntervalId = null;
+
+/**
+ * Start (or restart) the maintenance-window checker.
+ * Runs every minute; fires quitAndInstall when the clock enters the
+ * configured hour and an update is waiting.
+ */
+function startMaintenanceWindowChecker() {
+  if (maintenanceIntervalId) {
+    clearInterval(maintenanceIntervalId);
+    maintenanceIntervalId = null;
+  }
+
+  maintenanceIntervalId = setInterval(() => {
+    if (!pendingUpdateVersion) return;
+    const prefs = loadUpdatePrefs();
+    if (prefs.mode !== 'on-quit' || prefs.maintenanceHour === null) return;
+
+    const now = new Date();
+    if (now.getHours() === prefs.maintenanceHour) {
+      console.log(
+        `[updater] Maintenance window reached (${prefs.maintenanceHour}:xx) — ` +
+        `installing update ${pendingUpdateVersion} silently.`,
+      );
+      const { autoUpdater } = require('electron-updater');
+      autoUpdater.quitAndInstall(false, true);
+    }
+  }, 60_000); // check every minute
+}
+
+/**
  * Set up electron-updater for silent background updates.
  * Downloads happen automatically; the user is notified only when a restart
  * is required to apply the installed update.
@@ -29,9 +105,10 @@ function setupAutoUpdater() {
 
   let { autoUpdater } = require('electron-updater');
 
-  // Silent downloads — never interrupt the user
-  autoUpdater.autoDownload    = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  // Silent downloads — never interrupt the user mid-session
+  autoUpdater.autoDownload = true;
+  // We manage install-on-quit ourselves so that the owner's preference is honoured.
+  autoUpdater.autoInstallOnAppQuit = false;
 
   autoUpdater.logger = {
     info:  (msg) => console.log(`[updater] ${msg}`),
@@ -60,8 +137,26 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('update-downloaded', (info) => {
-    console.log(`[updater] Update ${info.version} downloaded — will apply on next restart.`);
-    showUpdateReadyNotification(info.version);
+    console.log(`[updater] Update ${info.version} downloaded.`);
+    pendingUpdateVersion = info.version;
+
+    const prefs = loadUpdatePrefs();
+
+    if (prefs.mode === 'on-download') {
+      // Owner chose "install immediately" — apply right away
+      console.log('[updater] mode=on-download — installing now.');
+      autoUpdater.quitAndInstall(false, true);
+      return;
+    }
+
+    // mode === 'on-quit': respect autoInstallOnAppQuit via our own before-quit hook
+    autoUpdater.autoInstallOnAppQuit = true;
+    console.log('[updater] mode=on-quit — will install on next quit.');
+
+    // Start maintenance-window checker in case a scheduled hour is configured
+    startMaintenanceWindowChecker();
+
+    showUpdateReadyNotification(info.version, prefs);
   });
 
   autoUpdater.on('error', (err) => {
@@ -84,15 +179,20 @@ function setupAutoUpdater() {
 }
 
 /**
- * Show a subtle OS notification telling the user a restart will apply the
- * downloaded update. Clicking the notification triggers a restart.
+ * Show a subtle OS notification and an in-app banner telling the user a
+ * downloaded update is ready. The banner copy adapts to the owner's preference.
  */
-function showUpdateReadyNotification(version) {
+function showUpdateReadyNotification(version, prefs) {
+  prefs = prefs || loadUpdatePrefs();
   if (!Notification.isSupported()) return;
+
+  const bodyText = prefs.maintenanceHour !== null
+    ? `Version ${version} is ready. It will install automatically at ${prefs.maintenanceHour}:00, or restart now.`
+    : `Version ${version} has been downloaded. Restart the app to apply it.`;
 
   const notif = new Notification({
     title: 'Update ready',
-    body:  `Version ${version} has been downloaded. Restart the app to apply it.`,
+    body:  bodyText,
     silent: true,
   });
 
@@ -103,10 +203,15 @@ function showUpdateReadyNotification(version) {
 
   notif.show();
 
-  // Also offer a dialog if the main window is open
+  // Also inject a banner into the main window
   if (mainWindow) {
+    const remindLabel = prefs.maintenanceHour !== null
+      ? `Auto-installs at ${prefs.maintenanceHour}:00`
+      : 'Later';
+
     mainWindow.webContents.executeJavaScript(`
       (function () {
+        if (document.getElementById('updater-banner')) return;
         const banner = document.createElement('div');
         banner.id = 'updater-banner';
         banner.style.cssText = [
@@ -124,18 +229,49 @@ function showUpdateReadyNotification(version) {
           '<button onclick="document.getElementById(\\\'updater-banner\\\').remove()" style="' +
             'padding:4px 10px;border-radius:6px;background:transparent;' +
             'color:#94a3b8;border:1px solid #475569;cursor:pointer;font-size:12px' +
-          '">Later</button>';
+          '">${remindLabel}</button>';
         document.body.appendChild(banner);
       })();
     `).catch(() => {});
   }
 }
 
-// IPC handler so the renderer can trigger a restart-to-update
+// ─── IPC: restart-for-update ──────────────────────────────────────────────────
+
+// Triggered by the banner "Restart now" button
 ipcMain.handle('restart-for-update', () => {
   if (!app.isPackaged) return;
   const { autoUpdater } = require('electron-updater');
   autoUpdater.quitAndInstall(false, true);
+});
+
+// ─── IPC: update preferences ──────────────────────────────────────────────────
+
+ipcMain.handle('get-update-prefs', () => loadUpdatePrefs());
+
+ipcMain.handle('set-update-prefs', (_event, prefs) => {
+  // Validate and sanitise before saving
+  const mode = prefs.mode === 'on-download' ? 'on-download' : 'on-quit';
+  let maintenanceHour = null;
+  if (typeof prefs.maintenanceHour === 'number') {
+    const h = Math.round(prefs.maintenanceHour);
+    if (h >= 0 && h <= 23) maintenanceHour = h;
+  }
+  const cleaned = { mode, maintenanceHour };
+  saveUpdatePrefs(cleaned);
+
+  // If a download is already waiting, re-evaluate behaviour immediately
+  if (pendingUpdateVersion) {
+    if (mode === 'on-download') {
+      const { autoUpdater } = require('electron-updater');
+      autoUpdater.quitAndInstall(false, true);
+    } else {
+      startMaintenanceWindowChecker();
+    }
+  }
+
+  console.log('[updater] Preferences saved:', JSON.stringify(cleaned));
+  return cleaned;
 });
 
 // ─── Configuration ────────────────────────────────────────────────────────────

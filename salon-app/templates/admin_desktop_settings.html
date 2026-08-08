@@ -1,0 +1,231 @@
+{% extends "admin_base.html" %}
+{% block title %}Desktop Update Settings — {{ tenant.name if tenant else 'Salon' }}{% endblock %}
+{% block page_title %}Desktop Update Settings{% endblock %}
+
+{% block head %}
+<style>
+  .pref-card {
+    border: 2px solid rgba(201,169,110,.18);
+    border-radius: 16px;
+    padding: 16px;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    background: #1a1a1a;
+  }
+  .pref-card.selected {
+    border-color: var(--gold2);
+    background: rgba(201,169,110,.07);
+  }
+  .pref-card:hover:not(.selected) { border-color: rgba(201,169,110,.4); }
+  .pref-radio { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6" id="desktop-settings-root">
+
+  <!-- Header -->
+  <div class="flex items-center gap-3 mb-2">
+    <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+         style="background:linear-gradient(135deg,#a07840,#d4af37);">
+      <i class="fa-solid fa-download text-sm" style="color:#0a0a0a;"></i>
+    </div>
+    <div>
+      <h1 class="font-display text-xl font-bold" style="color:#f5f0e8;">Desktop Update Settings</h1>
+      <p class="text-xs" style="color:#6e6058;">Control when downloaded updates are installed</p>
+    </div>
+  </div>
+
+  <!-- Not-desktop notice -->
+  <div id="not-desktop-notice" class="stat-card hidden">
+    <div class="flex items-center gap-3">
+      <i class="fa-solid fa-circle-info text-lg" style="color:var(--gold);"></i>
+      <div>
+        <div class="text-sm font-semibold" style="color:#f5f0e8;">Desktop app only</div>
+        <div class="text-xs mt-0.5" style="color:#6e6058;">
+          These settings only apply to the downloadable desktop app.
+          You are currently accessing Vanshika Makeover Academy through a web browser,
+          so this page has no effect here.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings form -->
+  <div id="settings-form" class="space-y-5 hidden">
+
+    <!-- Install mode -->
+    <div class="stat-card space-y-3">
+      <div class="ornament-line mb-1">Install Mode</div>
+      <p class="text-xs" style="color:#6e6058;">Choose when a downloaded update should be installed.</p>
+
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2" id="mode-cards">
+
+        <!-- on-quit -->
+        <label class="pref-card" id="card-on-quit" for="mode-on-quit">
+          <input class="pref-radio" type="radio" name="update_mode" id="mode-on-quit" value="on-quit">
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                 style="background:rgba(201,169,110,.12);">
+              <i class="fa-solid fa-moon text-xs" style="color:var(--gold);"></i>
+            </div>
+            <div>
+              <div class="text-sm font-semibold mb-0.5" style="color:#f5f0e8;">When I close the app</div>
+              <div class="text-xs leading-relaxed" style="color:#6e6058;">
+                Update installs automatically the next time you quit. Low interruption — safe during busy hours.
+              </div>
+            </div>
+          </div>
+        </label>
+
+        <!-- on-download -->
+        <label class="pref-card" id="card-on-download" for="mode-on-download">
+          <input class="pref-radio" type="radio" name="update_mode" id="mode-on-download" value="on-download">
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                 style="background:rgba(201,169,110,.12);">
+              <i class="fa-solid fa-bolt text-xs" style="color:var(--gold);"></i>
+            </div>
+            <div>
+              <div class="text-sm font-semibold mb-0.5" style="color:#f5f0e8;">As soon as it downloads</div>
+              <div class="text-xs leading-relaxed" style="color:#6e6058;">
+                App restarts immediately after the download finishes. Fastest way to get fixes — best for quiet times.
+              </div>
+            </div>
+          </div>
+        </label>
+
+      </div>
+    </div>
+
+    <!-- Maintenance window -->
+    <div class="stat-card space-y-3" id="maintenance-section">
+      <div class="ornament-line mb-1">Maintenance Window <span class="text-xs font-normal normal-case" style="color:#6e6058;">(optional)</span></div>
+      <p class="text-xs" style="color:#6e6058;">
+        When <strong style="color:#c9a96e;">When I close the app</strong> is selected, you can also set a
+        specific hour. If an update is waiting at that hour, the app will restart silently — ideal for overnight maintenance.
+      </p>
+
+      <div class="flex items-center gap-4">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="maintenance-enabled"
+                 class="rounded"
+                 style="accent-color:var(--gold2); width:16px; height:16px;">
+          <span class="text-sm" style="color:#f5f0e8;">Auto-restart at</span>
+        </label>
+        <select id="maintenance-hour"
+                class="rounded-xl px-3 py-2 text-sm outline-none"
+                style="background:#1e1e1e;border:1px solid #333;color:#f5f0e8; min-width:120px;">
+          {% for h in range(24) %}
+          <option value="{{ h }}">{{ '%02d:00'|format(h) }} {% if h < 6 %}(night){% elif h < 12 %}(morning){% elif h < 17 %}(afternoon){% elif h < 21 %}(evening){% else %}(night){% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <p class="text-xs" style="color:#6e6058;" id="maintenance-note"></p>
+    </div>
+
+    <!-- Save button -->
+    <div class="flex items-center gap-3">
+      <button id="save-btn" type="button" onclick="savePrefs()"
+              class="btn-gold rounded-xl px-6 py-2.5 text-sm font-semibold">
+        <i class="fa-solid fa-floppy-disk mr-1.5"></i> Save preferences
+      </button>
+      <span id="save-status" class="text-sm hidden" style="color:#6ee7b7;">
+        <i class="fa-solid fa-circle-check mr-1"></i> Saved
+      </span>
+    </div>
+
+  </div><!-- /settings-form -->
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  'use strict';
+
+  const bridge = window.desktopBridge;
+
+  // ── Detect environment ────────────────────────────────────────────────────
+  if (!bridge || typeof bridge.getUpdatePrefs !== 'function') {
+    document.getElementById('not-desktop-notice').classList.remove('hidden');
+    return;
+  }
+
+  const form = document.getElementById('settings-form');
+  form.classList.remove('hidden');
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function selectMode(mode) {
+    document.querySelectorAll('.pref-card').forEach(c => c.classList.remove('selected'));
+    const card = document.getElementById('card-' + mode);
+    if (card) card.classList.add('selected');
+    const radio = document.getElementById('mode-' + mode);
+    if (radio) radio.checked = true;
+
+    // Show maintenance window only for on-quit mode
+    const maint = document.getElementById('maintenance-section');
+    maint.style.opacity = mode === 'on-quit' ? '1' : '0.4';
+    maint.style.pointerEvents = mode === 'on-quit' ? '' : 'none';
+  }
+
+  function updateMaintenanceNote() {
+    const note   = document.getElementById('maintenance-note');
+    const enabled = document.getElementById('maintenance-enabled').checked;
+    const hour   = parseInt(document.getElementById('maintenance-hour').value, 10);
+    if (!enabled) {
+      note.textContent = 'No scheduled restart — update installs when you next close the app.';
+    } else {
+      const label = hour === 0 ? 'midnight' : (hour < 12 ? `${hour} am` : (hour === 12 ? 'noon' : `${hour - 12} pm`));
+      note.textContent = `The app will restart automatically at ${label} if an update is waiting.`;
+    }
+  }
+
+  // ── Load current prefs ────────────────────────────────────────────────────
+  bridge.getUpdatePrefs().then(prefs => {
+    selectMode(prefs.mode || 'on-quit');
+
+    const hasWindow = typeof prefs.maintenanceHour === 'number';
+    document.getElementById('maintenance-enabled').checked = hasWindow;
+    if (hasWindow) {
+      document.getElementById('maintenance-hour').value = String(prefs.maintenanceHour);
+    }
+    updateMaintenanceNote();
+  }).catch(err => {
+    console.error('[desktop-settings] Failed to load prefs:', err);
+  });
+
+  // ── Wire interactions ─────────────────────────────────────────────────────
+  document.querySelectorAll('.pref-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const radio = card.querySelector('input[type="radio"]');
+      if (radio) selectMode(radio.value);
+    });
+  });
+
+  document.getElementById('maintenance-enabled').addEventListener('change', updateMaintenanceNote);
+  document.getElementById('maintenance-hour').addEventListener('change', updateMaintenanceNote);
+
+  // ── Save ──────────────────────────────────────────────────────────────────
+  window.savePrefs = function savePrefs() {
+    const modeEl = document.querySelector('input[name="update_mode"]:checked');
+    const mode   = modeEl ? modeEl.value : 'on-quit';
+
+    const enabled = document.getElementById('maintenance-enabled').checked;
+    const hourVal = parseInt(document.getElementById('maintenance-hour').value, 10);
+    const maintenanceHour = enabled ? hourVal : null;
+
+    bridge.setUpdatePrefs({ mode, maintenanceHour }).then(() => {
+      const status = document.getElementById('save-status');
+      status.classList.remove('hidden');
+      setTimeout(() => status.classList.add('hidden'), 3000);
+    }).catch(err => {
+      console.error('[desktop-settings] Failed to save prefs:', err);
+      alert('Could not save preferences. Please try again.');
+    });
+  };
+
+})();
+</script>
+{% endblock %}

@@ -13,6 +13,19 @@ contextBridge.exposeInMainWorld('desktopBridge', {
 
   /** Trigger a quit-and-install cycle when an update has been downloaded */
   restartForUpdate: () => ipcRenderer.invoke('restart-for-update'),
+
+  /**
+   * Read the owner's update-installation preference from disk.
+   * Returns { mode: 'on-quit'|'on-download', maintenanceHour: null|0-23 }
+   */
+  getUpdatePrefs: () => ipcRenderer.invoke('get-update-prefs'),
+
+  /**
+   * Persist the owner's update-installation preference.
+   * @param {{ mode: string, maintenanceHour: number|null }} prefs
+   * Returns the sanitised prefs object that was saved.
+   */
+  setUpdatePrefs: (prefs) => ipcRenderer.invoke('set-update-prefs', prefs),
 });
 
 // Make restartForUpdate available as a plain global so the injected banner

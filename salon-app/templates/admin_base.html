@@ -279,6 +279,11 @@
     <a href="{{ url_for('admin_team') }}" class="nav-item {% if request.endpoint == 'admin_team' or 'team' in (request.endpoint or '') %}active{% endif %}">
       <i class="fa-solid fa-shield-halved"></i> Team Access
     </a>
+    <a href="{{ url_for('admin_desktop_settings') }}" id="nav-desktop-settings"
+       class="nav-item {% if 'desktop_settings' in (request.endpoint or '') %}active{% endif %}"
+       style="display:none;">
+      <i class="fa-solid fa-download"></i> Update Settings
+    </a>
     {% endif %}
   </nav>
 
@@ -348,6 +353,14 @@
     document.getElementById('erp-sidebar').classList.remove('open');
     document.getElementById('sidebar-overlay').classList.remove('open');
   }
+
+  // Show the "Update Settings" nav item only when running inside the Electron desktop app
+  (function () {
+    if (window.desktopBridge && typeof window.desktopBridge.getUpdatePrefs === 'function') {
+      var el = document.getElementById('nav-desktop-settings');
+      if (el) el.style.display = '';
+    }
+  })();
 </script>
 {% block scripts %}{% endblock %}
 </body>
